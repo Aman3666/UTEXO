@@ -1,309 +1,1236 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Concrete Defender — ConcreteXYZ</title>
-<meta property="og:title" content="Concrete Defender"/>
-<meta property="og:description" content="Protect the vault. Destroy liquidation bots. Earn CONC."/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concrete — Cross-Chain Yield Engine</title>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body {
-  background: #0a0a0a;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  min-height: 100vh; font-family: monospace;
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;600;700;800&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --gold:#f0d060;--gold2:#e8b830;--gold3:#c89420;--gold-dim:rgba(240,208,96,0.12);
+  --cyan:#00e8ff;--cyan2:#00b8d4;--cyan-dim:rgba(0,232,255,0.12);
+  --purple:#9b6dff;--purple2:#6b3ddf;
+  --red:#ff3d5a;--orange:#ff7730;
+  --green:#4ade80;
+  --navy:#020810;--navy2:#060f1e;
+  --panel:rgba(3,9,20,0.92);
+  --bg:rgba(240,208,96,0.22);--bc:rgba(0,232,255,0.18);
+  --text:#c8dce8;--dim:#4a6a80;
+  --fd:'Syne',sans-serif;--fm:'DM Mono',monospace;
 }
-#wrap { width: 100%; max-width: 700px; padding: 0.75rem; }
-#hud {
-  display: flex; justify-content: space-between;
-  align-items: center; margin-bottom: 8px;
-  flex-wrap: wrap; gap: 6px;
+html,body{width:100vw;height:100vh;overflow:hidden;background:var(--navy);font-family:var(--fd);color:var(--text)}
+canvas{display:block;position:fixed;inset:0;z-index:0}
+body::after{content:'';position:fixed;inset:0;z-index:310;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.025) 2px,rgba(0,0,0,0.025) 4px)}
+body::before{content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 38%,transparent 42%,rgba(2,8,16,.72) 100%)}
+
+/* ════════════════ LEFT PANEL ════════════════ */
+#panel-left{
+  position:fixed;top:0;left:0;bottom:0;width:300px;z-index:200;
+  background:linear-gradient(180deg,rgba(3,9,20,.97) 0%,rgba(2,6,14,.95) 100%);
+  border-right:1px solid rgba(240,208,96,.14);
+  display:flex;flex-direction:column;overflow:hidden;
 }
-.hud-stat { font-size: 11px; color: #555; }
-.hud-stat span { font-size: 14px; font-weight: 500; color: #fff; }
-canvas {
-  display: block; border-radius: 12px;
-  border: 0.5px solid #1c1c1c; background: #0a0a0a;
-  width: 100%; cursor: none;
+.panel-glow-line{height:2px;background:linear-gradient(90deg,transparent,var(--gold),var(--gold2),transparent);flex-shrink:0}
+.panel-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:18px 18px 24px;
+  scrollbar-width:thin;scrollbar-color:rgba(240,208,96,.2) transparent}
+.panel-scroll::-webkit-scrollbar{width:3px}
+.panel-scroll::-webkit-scrollbar-thumb{background:rgba(240,208,96,.2);border-radius:2px}
+
+/* Brand */
+.brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.bc-logo{width:34px;height:34px;background:var(--gold);border-radius:6px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 16px rgba(240,208,96,.35)}
+.bc-logo span{font-family:Georgia,serif;font-size:19px;font-weight:700;color:#1a1200;letter-spacing:-.5px}
+.brand-name{font-size:17px;font-weight:800;color:var(--gold);letter-spacing:2px;text-transform:uppercase;line-height:1}
+.brand-tag{font-family:var(--fm);font-size:8.5px;color:var(--dim);letter-spacing:1.8px;text-transform:uppercase;margin-bottom:16px}
+
+.div{height:1px;background:linear-gradient(90deg,transparent,rgba(240,208,96,.18),transparent);margin:12px 0}
+
+/* Stats grid */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
+.sc{background:var(--gold-dim);border:1px solid rgba(240,208,96,.1);border-radius:8px;padding:8px 10px;transition:border-color .3s,background .3s}
+.sc:hover{border-color:rgba(240,208,96,.3);background:rgba(240,208,96,.08)}
+.sc.wide{grid-column:1/-1}
+.sc.cyan-card{background:var(--cyan-dim);border-color:rgba(0,232,255,.12)}
+.sc.cyan-card .sv{color:var(--cyan)}
+.sv{font-family:var(--fm);font-size:12.5px;color:var(--gold);font-weight:500;line-height:1}
+.sl{font-size:8.5px;color:var(--dim);margin-top:3px;letter-spacing:.5px;text-transform:uppercase}
+
+/* ════ HOW IT RUNS — Step tracker ════ */
+.flow-title{
+  font-family:var(--fm);font-size:9px;color:var(--dim);
+  letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;
+  display:flex;align-items:center;gap:8px;
 }
-#footer {
-  margin-top: 8px; display: flex;
-  justify-content: space-between; align-items: center;
-  font-size: 10px; color: #333;
+.flow-title::after{content:'';flex:1;height:1px;background:rgba(240,208,96,.12)}
+.step-list{display:flex;flex-direction:column;gap:0}
+.step{
+  display:flex;align-items:flex-start;gap:10px;padding:9px 0;
+  border-bottom:1px solid rgba(240,208,96,.06);cursor:pointer;
+  transition:background .2s;border-radius:6px;padding-left:4px;padding-right:4px;
+  position:relative;
 }
-#footer a { color: #F5E98A; text-decoration: none; opacity: 0.6; }
-#footer a:hover { opacity: 1; }
+.step:last-child{border-bottom:none}
+.step:hover{background:rgba(240,208,96,.04)}
+.step.active{background:rgba(240,208,96,.07)}
+.step.active .step-num{background:var(--gold);color:#1a1200;box-shadow:0 0 10px rgba(240,208,96,.5)}
+.step.active .step-name{color:var(--gold)}
+.step.active .step-desc{color:var(--text)}
+.step.done .step-num{background:rgba(240,208,96,.15);color:var(--gold)}
+.step-num{
+  width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;
+  background:rgba(240,208,96,.06);border:1px solid rgba(240,208,96,.2);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--fm);font-size:9px;color:var(--dim);font-weight:500;
+  transition:all .3s;
+}
+.step-body{flex:1}
+.step-name{font-size:11px;font-weight:600;color:var(--dim);transition:color .3s;letter-spacing:.3px;margin-bottom:2px}
+.step-desc{font-family:var(--fm);font-size:9px;color:var(--dim);opacity:.7;line-height:1.5;transition:color .3s}
+.step-tag{
+  display:inline-block;font-family:var(--fm);font-size:8px;
+  padding:2px 6px;border-radius:3px;margin-top:4px;letter-spacing:.5px;text-transform:uppercase;
+}
+.tag-cyan{background:rgba(0,232,255,.1);color:var(--cyan);border:1px solid rgba(0,232,255,.2)}
+.tag-gold{background:rgba(240,208,96,.1);color:var(--gold);border:1px solid rgba(240,208,96,.2)}
+.tag-purple{background:rgba(155,109,255,.1);color:var(--purple);border:1px solid rgba(155,109,255,.2)}
+.tag-red{background:rgba(255,61,90,.1);color:var(--red);border:1px solid rgba(255,61,90,.2)}
+.tag-green{background:rgba(74,222,128,.1);color:var(--green);border:1px solid rgba(74,222,128,.2)}
+
+/* Progress connector between steps */
+.step-connector{width:1px;height:8px;background:rgba(240,208,96,.12);margin-left:14px}
+
+/* Controls */
+.ctrl-section{margin-bottom:12px}
+.ctrl-head{font-family:var(--fm);font-size:8.5px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
+.tr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.tl{font-family:var(--fm);font-size:9px;color:var(--dim);letter-spacing:.5px;text-transform:uppercase}
+.tog{position:relative;width:36px;height:19px;cursor:pointer;flex-shrink:0}
+.tog input{display:none}
+.tt{position:absolute;inset:0;border-radius:19px;background:rgba(240,208,96,.07);border:1px solid rgba(240,208,96,.18);transition:.25s}
+.tk{position:absolute;top:3px;left:3px;width:11px;height:11px;border-radius:50%;background:rgba(240,208,96,.3);transition:.25s}
+.tog input:checked~.tt{background:rgba(240,208,96,.18);border-color:var(--gold)}
+.tog input:checked~.tk{transform:translateX(17px);background:var(--gold);box-shadow:0 0 8px var(--gold)}
+.sw{margin-bottom:10px}
+.sh{display:flex;justify-content:space-between;margin-bottom:5px}
+.shl{font-family:var(--fm);font-size:9px;color:var(--dim);letter-spacing:.5px;text-transform:uppercase}
+.shv{font-family:var(--fm);font-size:9px;color:var(--gold)}
+input[type=range]{-webkit-appearance:none;width:100%;height:2px;background:rgba(240,208,96,.14);border-radius:2px;outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--gold);cursor:pointer;box-shadow:0 0 8px var(--gold)}
+
+/* Phase bar */
+#ph{background:rgba(240,208,96,.04);border:1px solid rgba(240,208,96,.1);border-radius:8px;padding:9px 11px}
+#ph-t{font-family:var(--fm);font-size:8.5px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+#ph-b{height:3px;background:rgba(240,208,96,.1);border-radius:3px;overflow:hidden;margin-bottom:5px}
+#ph-f{height:100%;background:linear-gradient(90deg,var(--gold3),var(--gold));border-radius:3px;transition:width .5s ease;width:0%}
+#ph-v{font-family:var(--fm);font-size:10px;color:var(--gold);letter-spacing:.5px}
+
+/* ════════════════ RIGHT PANEL ════════════════ */
+#panel-right{
+  position:fixed;top:20px;right:20px;width:220px;z-index:200;
+  display:flex;flex-direction:column;gap:10px;
+}
+.r-card{
+  background:rgba(3,9,20,.88);border:1px solid rgba(240,208,96,.14);
+  border-radius:10px;padding:12px 14px;backdrop-filter:blur(18px);
+  box-shadow:0 0 30px rgba(240,208,96,.05);
+}
+.r-card.cyan-border{border-color:rgba(0,232,255,.18)}
+.live-row{display:flex;align-items:center;gap:6px;font-family:var(--fm);font-size:9px;color:rgba(240,208,96,.5);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px}
+.ld{width:5px;height:5px;border-radius:50%;background:var(--gold);box-shadow:0 0 6px var(--gold);animation:lp 1.4s ease-in-out infinite}
+@keyframes lp{0%,100%{opacity:1}50%{opacity:.15}}
+.ld.cyan{background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+#tvl-live{font-family:var(--fm);font-size:20px;font-weight:500;color:var(--gold);letter-spacing:.5px;line-height:1}
+#tvl-sub{font-family:var(--fm);font-size:8px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px}
+
+/* Mini chart */
+#mini-chart{height:36px;position:relative;margin-top:8px}
+#mini-chart canvas{width:100%!important;height:100%!important}
+
+/* Event log */
+#event-log{max-height:120px;overflow-y:auto;scrollbar-width:none}
+#event-log::-webkit-scrollbar{display:none}
+.ev-row{display:flex;align-items:flex-start;gap:6px;padding:4px 0;border-bottom:1px solid rgba(240,208,96,.05);font-family:var(--fm);font-size:8.5px}
+.ev-row:last-child{border-bottom:none}
+.ev-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-top:3px}
+.ev-text{color:var(--dim);line-height:1.4}
+.ev-text span{color:var(--text)}
+
+/* ════════════════ BOTTOM LEGEND ════════════════ */
+#leg{position:fixed;bottom:18px;left:320px;right:250px;z-index:200;
+  display:flex;align-items:center;justify-content:center;gap:20px;flex-wrap:wrap}
+.li{display:flex;align-items:center;gap:5px;font-family:var(--fm);font-size:8.5px;color:var(--dim);letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
+.ld2{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* ════════════════ STATUS ════════════════ */
+#status{position:fixed;bottom:6px;left:50%;transform:translateX(-50%);z-index:200;
+  font-family:var(--fm);font-size:8px;color:rgba(0,232,255,.22);
+  letter-spacing:2px;text-transform:uppercase;white-space:nowrap;pointer-events:none}
+
+/* Flash + tooltip */
+#flash{position:fixed;inset:0;z-index:260;pointer-events:none;
+  background:radial-gradient(ellipse at center,rgba(240,208,96,.18) 0%,transparent 65%);opacity:0;transition:opacity .15s}
+#tooltip{position:fixed;z-index:230;pointer-events:none;
+  background:rgba(3,9,20,.94);border:1px solid var(--bg);border-radius:8px;
+  padding:8px 12px;font-family:var(--fm);font-size:9.5px;color:var(--gold);
+  letter-spacing:.5px;backdrop-filter:blur(14px);opacity:0;transition:opacity .2s;white-space:nowrap}
+
+/* Flywheel label overlay */
+#flywheel-label{
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+  z-index:150;pointer-events:none;text-align:center;
+}
+#flywheel-label .fl-title{font-size:9px;font-family:var(--fm);color:rgba(240,208,96,.3);letter-spacing:3px;text-transform:uppercase}
+
+/* Corners */
+.orn{position:fixed;width:22px;height:22px;z-index:200;pointer-events:none;opacity:.25}
+.orn-tr{top:7px;right:248px;border-top:1.5px solid var(--gold);border-right:1.5px solid var(--gold)}
+.orn-br{bottom:7px;right:7px;border-bottom:1.5px solid var(--gold);border-right:1.5px solid var(--gold)}
+.orn-bl{bottom:7px;left:307px;border-bottom:1.5px solid var(--gold);border-left:1.5px solid var(--gold)}
 </style>
 </head>
 <body>
-<div id="wrap">
-  <div id="hud">
-    <div class="hud-stat">CONC <span id="scoreEl">0</span></div>
-    <div class="hud-stat">TVL <span id="tvlEl">$902.3M</span></div>
-    <div class="hud-stat">WAVE <span id="waveEl">1</span></div>
-    <div class="hud-stat">CHAIN <span id="chainEl">×1</span></div>
-    <div class="hud-stat">VAULT <span id="livesEl">❤️❤️❤️</span></div>
-    <div class="hud-stat">BEST <span id="bestEl">0</span></div>
-  </div>
-  <canvas id="c"></canvas>
-  <div id="footer">
-    <span>CONCRETE DEFENDER · @ConcreteXYZ</span>
-    <a href="https://concrete.xyz" target="_blank">concrete.xyz ↗</a>
+
+<!-- LEFT PANEL -->
+<div id="panel-left">
+  <div class="panel-glow-line"></div>
+  <div class="panel-scroll">
+
+    <div class="brand">
+      <div class="bc-logo"><span>C̄</span></div>
+      <div>
+        <div class="brand-name">Concrete</div>
+      </div>
+    </div>
+    <div class="brand-tag">Cross-Chain Yield Engine · Protocol v3.1</div>
+
+    <div class="sg">
+      <div class="sc"><div class="sv">$2.4B</div><div class="sl">TVL</div></div>
+      <div class="sc"><div class="sv">+38%</div><div class="sl">Yield Boost</div></div>
+      <div class="sc"><div class="sv">92%</div><div class="sl">Liq. Saved</div></div>
+      <div class="sc"><div class="sv">12</div><div class="sl">Chains</div></div>
+      <div class="sc wide cyan-card"><div class="sv" id="apr-live">APR: 14.2%</div><div class="sl">Live Strategy Performance · Auto-Optimizing</div></div>
+    </div>
+
+    <div class="div"></div>
+
+    <!-- HOW IT RUNS -->
+    <div class="flow-title">How It Runs</div>
+    <div class="step-list" id="step-list">
+
+      <div class="step active" data-step="0">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-name">User Deposits</div>
+          <div class="step-desc">Assets flow from your wallet into the Earn Vault. Concrete accepts any token across 12+ chains.</div>
+          <span class="step-tag tag-cyan">Vault Entry</span>
+        </div>
+      </div>
+      <div class="step-connector"></div>
+
+      <div class="step" data-step="1">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-name">Strategy Routing</div>
+          <div class="step-desc">Capital is allocated across 3 strategy layers — Passive Lending, Ecosystem ETF, and Leveraged positions.</div>
+          <span class="step-tag tag-gold">Capital Allocation</span>
+        </div>
+      </div>
+      <div class="step-connector"></div>
+
+      <div class="step" data-step="2">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-name">Cross-Chain Deployment</div>
+          <div class="step-desc">The Protocol Core bridges liquidity to highest-yield chains via optimized routing paths in real-time.</div>
+          <span class="step-tag tag-purple">Bridge & Deploy</span>
+        </div>
+      </div>
+      <div class="step-connector"></div>
+
+      <div class="step" data-step="3">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-name">Liquidation Guard</div>
+          <div class="step-desc">If a borrowed position approaches liquidation, the Protection Engine auto-deploys 3 tranche shields before any loss occurs.</div>
+          <span class="step-tag tag-red">Risk Prevention</span>
+        </div>
+      </div>
+      <div class="step-connector"></div>
+
+      <div class="step" data-step="4">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <div class="step-name">Yield Harvest</div>
+          <div class="step-desc">Returns auto-compound back through the Protocol Core, boosted by CONCRETE emission rewards.</div>
+          <span class="step-tag tag-green">Compounding</span>
+        </div>
+      </div>
+      <div class="step-connector"></div>
+
+      <div class="step" data-step="5">
+        <div class="step-num">6</div>
+        <div class="step-body">
+          <div class="step-name">Flywheel Restarts</div>
+          <div class="step-desc">Earned yield + emissions re-enter the vault, increasing TVL and boosting the next cycle's APR for all depositors.</div>
+          <span class="step-tag tag-gold">Auto-Compound</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="div"></div>
+
+    <!-- CONTROLS -->
+    <div class="ctrl-section">
+      <div class="ctrl-head">Controls</div>
+      <div class="tr">
+        <span class="tl">Protection Events</span>
+        <label class="tog"><input type="checkbox" id="tog-prot" checked><div class="tt"></div><div class="tk"></div></label>
+      </div>
+      <div class="tr">
+        <span class="tl">Manual DeFi Comparison</span>
+        <label class="tog"><input type="checkbox" id="tog-defi" checked><div class="tt"></div><div class="tk"></div></label>
+      </div>
+      <div class="tr">
+        <span class="tl">Show Step Labels</span>
+        <label class="tog"><input type="checkbox" id="tog-labels" checked><div class="tt"></div><div class="tk"></div></label>
+      </div>
+    </div>
+
+    <div class="sw">
+      <div class="sh"><span class="shl">Liquidity Intensity</span><span class="shv" id="liq-val">70%</span></div>
+      <input type="range" id="slid-liq" min="10" max="100" value="70">
+    </div>
+    <div class="sw">
+      <div class="sh"><span class="shl">Strategy Risk Level</span><span class="shv" id="risk-val">Medium</span></div>
+      <input type="range" id="slid-risk" min="0" max="100" value="50">
+    </div>
+
+    <div id="ph">
+      <div id="ph-t">Protocol Phase</div>
+      <div id="ph-b"><div id="ph-f"></div></div>
+      <div id="ph-v">YIELD ROUTING ACTIVE</div>
+    </div>
+
   </div>
 </div>
+
+<!-- RIGHT PANEL -->
+<div id="panel-right">
+  <div class="r-card">
+    <div class="live-row"><span class="ld"></span>LIVE TVL</div>
+    <div id="tvl-live">$2,412,847,331</div>
+    <div id="tvl-sub">Total Value Locked — 12 Chains</div>
+    <canvas id="mini-chart" width="180" height="36"></canvas>
+  </div>
+
+  <div class="r-card cyan-border">
+    <div class="live-row"><span class="ld cyan"></span>EVENT LOG</div>
+    <div id="event-log">
+      <div class="ev-row"><div class="ev-dot" style="background:#00e8ff"></div><div class="ev-text"><span>+$142k</span> deposited via ETH vault</div></div>
+      <div class="ev-row"><div class="ev-dot" style="background:#f0d060"></div><div class="ev-text">Strategy rebalanced → <span>+0.4% APR</span></div></div>
+      <div class="ev-row"><div class="ev-dot" style="background:#4ade80"></div><div class="ev-text">Yield harvested: <span>$28,441</span></div></div>
+      <div class="ev-row"><div class="ev-dot" style="background:#9b6dff"></div><div class="ev-text">CONCRETE emissions <span>distributed</span></div></div>
+    </div>
+  </div>
+
+  <div class="r-card">
+    <div class="live-row"><span class="ld"></span>CHAIN ROUTING</div>
+    <div style="display:flex;flex-direction:column;gap:5px" id="chain-bars">
+      <div style="display:flex;align-items:center;gap:7px;font-family:var(--fm);font-size:9px;color:var(--dim)">
+        <span style="width:32px">ETH</span>
+        <div style="flex:1;height:3px;background:rgba(0,232,255,.1);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:68%;background:var(--cyan);border-radius:2px;box-shadow:0 0 4px var(--cyan)"></div></div>
+        <span style="color:var(--cyan)">68%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;font-family:var(--fm);font-size:9px;color:var(--dim)">
+        <span style="width:32px">ARB</span>
+        <div style="flex:1;height:3px;background:rgba(155,109,255,.1);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:22%;background:var(--purple);border-radius:2px;box-shadow:0 0 4px var(--purple)"></div></div>
+        <span style="color:var(--purple)">22%</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;font-family:var(--fm);font-size:9px;color:var(--dim)">
+        <span style="width:32px">BASE</span>
+        <div style="flex:1;height:3px;background:rgba(240,208,96,.1);border-radius:2px;overflow:hidden">
+          <div style="height:100%;width:10%;background:var(--gold);border-radius:2px;box-shadow:0 0 4px var(--gold)"></div></div>
+        <span style="color:var(--gold)">10%</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LEGEND -->
+<div id="leg">
+  <div class="li"><div class="ld2" style="background:#00e8ff;box-shadow:0 0 5px #00e8ff"></div>Yield Flow</div>
+  <div class="li"><div class="ld2" style="background:#f0d060;box-shadow:0 0 5px #f0d060"></div>Rewards</div>
+  <div class="li"><div class="ld2" style="background:#9b6dff;box-shadow:0 0 5px #9b6dff"></div>Emissions</div>
+  <div class="li"><div class="ld2" style="background:#ff3d5a;box-shadow:0 0 5px #ff3d5a"></div>Risk / Liq.</div>
+  <div class="li"><div class="ld2" style="background:#ff7730;box-shadow:0 0 5px #ff7730"></div>Manual DeFi</div>
+  <div class="li"><div class="ld2" style="background:#4ade80;box-shadow:0 0 5px #4ade80"></div>Compounding</div>
+</div>
+
+<div id="status">DRAG TO ORBIT · SCROLL TO ZOOM · CLICK MODULE TO FOCUS · DOUBLE-CLICK TO RESET</div>
+<div id="flash"></div>
+<div id="tooltip"></div>
+<div class="orn orn-tr"></div>
+<div class="orn orn-br"></div>
+<div class="orn orn-bl"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-const canvas=document.getElementById('c');
-const ctx=canvas.getContext('2d');
-const W=660,H=460;
-canvas.width=W;canvas.height=H;
+// ═══════════════════════════════════════════════════════════
+//  CONCRETE DEFI ENGINE — Enhanced Visualization
+//  "How It Runs" — 6-Step Flywheel with Narrative Flow
+// ═══════════════════════════════════════════════════════════
 
-const LS=44;
-const logoCanvas=document.createElement('canvas');
-logoCanvas.width=LS;logoCanvas.height=LS;
-const lc=logoCanvas.getContext('2d');
-function rrect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.lineTo(x+w-r,y);c.arcTo(x+w,y,x+w,y+r,r);c.lineTo(x+w,y+h-r);c.arcTo(x+w,y+h,x+w-r,y+h,r);c.lineTo(x+r,y+h);c.arcTo(x,y+h,x,y+h-r,r);c.lineTo(x,y+r);c.arcTo(x,y,x+r,y,r);c.closePath();}
-(function(){lc.clearRect(0,0,LS,LS);lc.fillStyle='#F5E98A';rrect(lc,0,0,LS,LS,LS*0.12);lc.fill();lc.fillStyle='#1a1a1a';lc.fillRect(LS*0.22,LS*0.13,LS*0.56,LS*0.07);lc.fillRect(LS*0.22,LS*0.80,LS*0.56,LS*0.07);lc.font=`bold ${LS*0.52}px serif`;lc.textAlign='center';lc.textBaseline='middle';lc.fillText('C',LS*0.50,LS*0.50);})();
+const W = innerWidth, H = innerHeight;
 
-const ETYPES=[
-  {label:'LIQ BOT',  color:'#E24B4A',hp:1,spd:1.1, reward:10,size:22},
-  {label:'MEV',      color:'#EF9F27',hp:2,spd:1.8, reward:25,size:18},
-  {label:'RUG PULL', color:'#D4537E',hp:3,spd:0.85,reward:50,size:29},
-  {label:'FLASH',    color:'#85B7EB',hp:1,spd:3.2, reward:45,size:13},
-  {label:'BAD DEBT', color:'#A32D2D',hp:4,spd:0.6, reward:80,size:33},
-  {label:'ORACLE',   color:'#533AB7',hp:2,spd:1.4, reward:35,size:20},
-  {label:'SANDWICH', color:'#639922',hp:2,spd:1.6, reward:30,size:19},
+const S = {
+  liq:0.7, risk:0.5, speed:1.0,
+  showProt:true, showDefi:true, showLabels:true,
+  autoRotate:true,
+  camTheta:0.45, camPhi:0.30, camR:16,
+  mouse:{down:false,lx:0,ly:0},
+  focusTarget:new THREE.Vector3(),
+  focusLerp:0,
+  protActive:false, protFired:false,
+  currentStep:0,
+  stepTimer:0,
+  STEP_DUR:6.5,
+};
+
+// ── Renderer ──
+const renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(W,H);
+renderer.setClearColor(0x020810,1);
+document.body.insertBefore(renderer.domElement, document.getElementById('panel-left'));
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x020810, 0.020);
+
+const camera = new THREE.PerspectiveCamera(48, W/H, 0.01, 200);
+camera.position.set(0,4,16);
+camera.lookAt(0,0,0);
+
+// ── Lights ──
+scene.add(new THREE.AmbientLight(0x04101e, 2.2));
+const goldPt = new THREE.PointLight(0xf0d060, 1.8, 25);
+goldPt.position.set(0,3,0); scene.add(goldPt);
+const cyanPt = new THREE.PointLight(0x00e8ff, 0.9, 20);
+cyanPt.position.set(-6,2,4); scene.add(cyanPt);
+const purplePt = new THREE.PointLight(0x9b6dff, 0.6, 18);
+purplePt.position.set(6,1,-4); scene.add(purplePt);
+const greenPt = new THREE.PointLight(0x4ade80, 0.4, 15);
+greenPt.position.set(0,-2,5); scene.add(greenPt);
+
+// ── Helpers ──
+function gsp(col, sz, op=1) {
+  const c=document.createElement('canvas'); c.width=c.height=64;
+  const x=c.getContext('2d');
+  const r=(col>>16)&255, g=(col>>8)&255, b=col&255;
+  const gr=x.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0, `rgba(${r},${g},${b},1)`);
+  gr.addColorStop(.4, `rgba(${r},${g},${b},.45)`);
+  gr.addColorStop(1, `rgba(${r},${g},${b},0)`);
+  x.fillStyle=gr; x.fillRect(0,0,64,64);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({
+    map:new THREE.CanvasTexture(c), transparent:true,
+    blending:THREE.AdditiveBlending, depthWrite:false, opacity:op,
+  }));
+  sp.scale.set(sz,sz,1); return sp;
+}
+
+function makeLabel(text, col='#f0d060', sz=11, subtext='') {
+  const c=document.createElement('canvas'); c.width=512; c.height=subtext?96:72;
+  const ctx=c.getContext('2d'); ctx.clearRect(0,0,512,c.height);
+  ctx.font=`700 ${sz*1.9}px 'Syne',sans-serif`;
+  ctx.fillStyle=col; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text, 256, subtext?30:36);
+  if (subtext) {
+    ctx.font=`400 ${sz*1.3}px 'DM Mono',monospace`;
+    ctx.fillStyle='rgba(200,220,232,0.5)';
+    ctx.fillText(subtext, 256, 68);
+  }
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({
+    map:new THREE.CanvasTexture(c), transparent:true, depthWrite:false,
+  }));
+  sp.scale.set(3.2, subtext?0.5:0.38, 1); return sp;
+}
+
+function makePill(text, col=0xf0d060) {
+  const c=document.createElement('canvas'); c.width=256; c.height=48;
+  const ctx=c.getContext('2d'); ctx.clearRect(0,0,256,48);
+  const r=(col>>16)&255, g=(col>>8)&255, b=col&255;
+  ctx.fillStyle=`rgba(${r},${g},${b},0.15)`;
+  ctx.strokeStyle=`rgba(${r},${g},${b},0.5)`;
+  ctx.lineWidth=2; ctx.beginPath();
+  ctx.roundRect(4,4,248,40,20); ctx.fill(); ctx.stroke();
+  ctx.font=`500 18px 'DM Mono',monospace`;
+  ctx.fillStyle=`rgba(${r},${g},${b},1)`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(text, 128, 24);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({
+    map:new THREE.CanvasTexture(c), transparent:true, depthWrite:false,
+  }));
+  sp.scale.set(2,0.3,1); return sp;
+}
+
+// ── Stars ──
+(function(){
+  const N=2000, pos=new Float32Array(N*3);
+  for (let i=0;i<N;i++){
+    const t=Math.random()*Math.PI*2, p=Math.acos(2*Math.random()-1), r=55+Math.random()*40;
+    pos[i*3]=r*Math.sin(p)*Math.cos(t); pos[i*3+1]=r*Math.sin(p)*Math.sin(t); pos[i*3+2]=r*Math.cos(p);
+  }
+  const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  scene.add(new THREE.Points(geo,new THREE.PointsMaterial({color:0xffffff,size:.1,transparent:true,opacity:.22,blending:THREE.AdditiveBlending,depthWrite:false})));
+})();
+
+// ── Grid ──
+(function(){
+  const size=70, d=28, v=[], step=size/d, half=size/2;
+  for(let i=0;i<=d;i++){const q=-half+i*step; v.push(-half,-4.2,q,half,-4.2,q,q,-4.2,-half,q,-4.2,half)}
+  const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
+  scene.add(new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0x091d30,transparent:true,opacity:.4})));
+})();
+
+// ════════════════════════════════════════════
+//  1. CONCRETE CORE SPHERE
+// ════════════════════════════════════════════
+const coreGrp = new THREE.Group();
+scene.add(coreGrp);
+
+// Platform
+const platMesh = new THREE.Mesh(
+  new THREE.CylinderGeometry(3.4,3.8,0.07,64),
+  new THREE.MeshPhysicalMaterial({color:0x04101e,metalness:.98,roughness:.04})
+);
+platMesh.position.y=-2.2; coreGrp.add(platMesh);
+
+// Platform grid rings
+for(let r=0;r<5;r++){
+  const ring=new THREE.Mesh(
+    new THREE.RingGeometry(.4+r*.58,.4+r*.58+.012,64),
+    new THREE.MeshBasicMaterial({color:0xf0d060,transparent:true,opacity:.07+r*.012,side:THREE.DoubleSide,blending:THREE.AdditiveBlending})
+  );
+  ring.rotation.x=-Math.PI/2; ring.position.y=-2.13; coreGrp.add(ring);
+}
+
+// Outer glass shell
+const coreMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(1.88,52,36),
+  new THREE.MeshPhysicalMaterial({
+    color:0xf5e890,transparent:true,opacity:.1,
+    roughness:.04,metalness:.08,transmission:.82,thickness:.6,
+    side:THREE.DoubleSide,depthWrite:false,
+  })
+);
+coreGrp.add(coreMesh);
+
+// Inner metallic frame rings (3 axes)
+const frameAngles=[[0,0,0],[Math.PI/2,0,0],[0,0,Math.PI/2]];
+frameAngles.forEach((rot,i)=>{
+  const fr=new THREE.Mesh(
+    new THREE.TorusGeometry(1.55-.18*i,.014,10,80),
+    new THREE.MeshBasicMaterial({color:0xf0d060,transparent:true,opacity:.28-.05*i,blending:THREE.AdditiveBlending})
+  );
+  fr.rotation.set(...rot); coreGrp.add(fr);
+});
+
+// Equatorial band
+const eqBand=new THREE.Mesh(
+  new THREE.TorusGeometry(1.88,.008,6,80),
+  new THREE.MeshBasicMaterial({color:0xf0d060,transparent:true,opacity:.18,blending:THREE.AdditiveBlending})
+);
+coreGrp.add(eqBand);
+
+// Core glow
+const coreGlow=gsp(0xf0d060,8,.16); coreGrp.add(coreGlow);
+const coreInnerGlow=gsp(0xffffff,3,.08); coreGrp.add(coreInnerGlow);
+
+// Concrete logo on core
+const coreLogoSp=(()=>{
+  const c=document.createElement('canvas'); c.width=c.height=128;
+  const ctx=c.getContext('2d'); ctx.clearRect(0,0,128,128);
+  ctx.font='bold 78px Georgia,serif';
+  ctx.fillStyle='rgba(240,208,96,0.92)'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('C̄',64,66);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));
+  sp.scale.set(1.9,1.9,1); return sp;
+})();
+coreGrp.add(coreLogoSp);
+
+// Outer wireframe
+const coreWire=new THREE.Mesh(
+  new THREE.SphereGeometry(1.9,20,14),
+  new THREE.MeshBasicMaterial({color:0xf0d060,wireframe:true,transparent:true,opacity:.055})
+);
+coreGrp.add(coreWire);
+
+const coreLbl=makeLabel('CONCRETE CORE','#f0d060',11,'Settlement & Routing Layer');
+coreLbl.position.set(0,-2.65,0); coreGrp.add(coreLbl);
+
+// ════════════════════════════════════════════
+//  2. EARN VAULT MODULE (step 1 → 2)
+// ════════════════════════════════════════════
+const vaultGrp=new THREE.Group();
+vaultGrp.position.set(-6,0.4,1.5);
+scene.add(vaultGrp);
+
+// Main vault body
+const vBody=new THREE.Mesh(
+  new THREE.BoxGeometry(1.7,2.4,.95),
+  new THREE.MeshPhysicalMaterial({color:0x001c30,transparent:true,opacity:.88,metalness:.72,roughness:.18})
+);
+vaultGrp.add(vBody);
+vaultGrp.add(new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(1.7,2.4,.95)),
+  new THREE.LineBasicMaterial({color:0x00e8ff,transparent:true,opacity:.55})
+));
+
+// Vault level fill
+const vFill=new THREE.Mesh(
+  new THREE.BoxGeometry(1.35,.75,.72),
+  new THREE.MeshBasicMaterial({color:0x00e8ff,transparent:true,opacity:.22,blending:THREE.AdditiveBlending})
+);
+vFill.position.y=-.35; vaultGrp.add(vFill);
+
+// Vault glow
+const vGlow=gsp(0x00e8ff,3.5,.18); vaultGrp.add(vGlow);
+
+const vLbl=makeLabel('EARN VAULT','#00e8ff',10,'Deposit · Auto-Compound');
+vLbl.position.set(0,-1.85,0); vaultGrp.add(vLbl);
+
+// Step 1 pill
+const vStep=makePill('STEP 1 — DEPOSIT',0x00e8ff);
+vStep.position.set(0,1.6,0); vaultGrp.add(vStep);
+
+// ── Strategy plates above vault ──
+const stratPlates=[];
+const stratData=[
+  {name:'Passive Lending',col:0x00e8ff,sub:'Low Risk · 8% APR'},
+  {name:'Ecosystem ETF', col:0xf0d060,sub:'Mid Risk · 14% APR'},
+  {name:'Leveraged',     col:0x9b6dff,sub:'High Risk · 28% APR'},
 ];
-const PUPS=[
-  {label:'PENDLE',color:'#1D9E75',effect:'rapidfire',desc:'RAPID FIRE!', duration:300},
-  {label:'MORPHO',color:'#378ADD',effect:'multishot',desc:'MULTI-SHOT!', duration:250},
-  {label:'BITGO', color:'#F5E98A',effect:'shield',   desc:'SHIELD!',     duration:400},
-  {label:'GLOW',  color:'#EF9F27',effect:'bomb',     desc:'NUKE!',       duration:0  },
+stratData.forEach(({name,col,sub},i)=>{
+  const pg=new THREE.Group();
+  pg.position.set(-6, 3.1+i*1.05, 1.5);
+  scene.add(pg);
+  pg.add(new THREE.Mesh(
+    new THREE.BoxGeometry(2.4,.1,1.3),
+    new THREE.MeshPhysicalMaterial({color:col,transparent:true,opacity:.2,metalness:.6})
+  ));
+  pg.add(new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.BoxGeometry(2.4,.1,1.3)),
+    new THREE.LineBasicMaterial({color:col,transparent:true,opacity:.6})
+  ));
+  const sg=gsp(col,2.8,.1); pg.add(sg);
+  const pl=makeLabel(name,`#${col.toString(16).padStart(6,'0')}`,8.5,sub);
+  pl.position.set(0,-.38,0); pg.add(pl);
+  stratPlates.push({group:pg, phase:i*Math.PI*2/3, col});
+});
+
+// ════════════════════════════════════════════
+//  3. BORROW ROUTER (step 2 active when risk > 0)
+// ════════════════════════════════════════════
+const borrowGrp=new THREE.Group();
+borrowGrp.position.set(6,0,1.2);
+scene.add(borrowGrp);
+
+borrowGrp.add(new THREE.Mesh(
+  new THREE.CylinderGeometry(.65,.85,2.3,16),
+  new THREE.MeshPhysicalMaterial({color:0x100820,transparent:true,opacity:.82,metalness:.72,roughness:.22})
+));
+borrowGrp.add(new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.CylinderGeometry(.65,.85,2.3,8)),
+  new THREE.LineBasicMaterial({color:0x9b6dff,transparent:true,opacity:.5})
+));
+const bGlow=gsp(0x9b6dff,3.2,.16); borrowGrp.add(bGlow);
+
+// Dynamic rate bars
+const rateBars=[];
+for(let i=0;i<5;i++){
+  const bar=new THREE.Mesh(
+    new THREE.BoxGeometry(.11,.6,.11),
+    new THREE.MeshBasicMaterial({color:0x9b6dff,transparent:true,opacity:.65,blending:THREE.AdditiveBlending})
+  );
+  bar.position.set(-.82+i*.41, 1.95, 0); borrowGrp.add(bar);
+  rateBars.push({bar, phase:i*1.1, baseH:.6});
+}
+const bLbl=makeLabel('BORROW ROUTER','#9b6dff',10,'Rate Optimizer · Cross-Chain');
+bLbl.position.set(0,-1.65,0); borrowGrp.add(bLbl);
+const bStep=makePill('STEP 3 — DEPLOY',0x9b6dff);
+bStep.position.set(0,1.65,0); borrowGrp.add(bStep);
+
+// ════════════════════════════════════════════
+//  4. LIQUIDATION PROTECTION ENGINE (step 4)
+// ════════════════════════════════════════════
+const protGrp=new THREE.Group();
+protGrp.position.set(0,1,-6);
+scene.add(protGrp);
+
+// Hex shield
+const hexShape=new THREE.Shape();
+for(let i=0;i<6;i++){
+  const a=i/6*Math.PI*2-Math.PI/6;
+  i===0?hexShape.moveTo(Math.cos(a)*1.15,Math.sin(a)*1.15):hexShape.lineTo(Math.cos(a)*1.15,Math.sin(a)*1.15);
+}
+hexShape.closePath();
+const shieldFace=new THREE.Mesh(
+  new THREE.ShapeGeometry(hexShape),
+  new THREE.MeshBasicMaterial({color:0xf0d060,transparent:true,opacity:.1,side:THREE.DoubleSide,blending:THREE.AdditiveBlending})
+);
+shieldFace.rotation.x=-.42; protGrp.add(shieldFace);
+const shieldEdge=new THREE.LineLoop(
+  new THREE.ShapeGeometry(hexShape),
+  new THREE.LineBasicMaterial({color:0xf0d060,transparent:true,opacity:.7})
+);
+shieldEdge.rotation.x=-.42; protGrp.add(shieldEdge);
+
+// Inner hex rings
+for(let i=0;i<2;i++){
+  const hs=new THREE.Shape();
+  const scale=.65-.2*i;
+  for(let j=0;j<6;j++){const a=j/6*Math.PI*2-Math.PI/6; j===0?hs.moveTo(Math.cos(a)*scale,Math.sin(a)*scale):hs.lineTo(Math.cos(a)*scale,Math.sin(a)*scale);}
+  hs.closePath();
+  const he=new THREE.LineLoop(new THREE.ShapeGeometry(hs),new THREE.LineBasicMaterial({color:0xf0d060,transparent:true,opacity:.3-i*.1}));
+  he.rotation.x=-.42; protGrp.add(he);
+}
+
+const protGlow=gsp(0xf0d060,4.5,.14); protGrp.add(protGlow);
+const protLbl=makeLabel('PROTECTION ENGINE','#f0d060',10,'Liq. Guard · 3 Tranches');
+protLbl.position.set(0,-1.75,0); protGrp.add(protLbl);
+const protStep=makePill('STEP 4 — PROTECT',0xff3d5a);
+protStep.position.set(0,1.65,0); protGrp.add(protStep);
+
+// Shield waves
+const shieldWaves=[];
+for(let i=0;i<3;i++){
+  const r=new THREE.Mesh(
+    new THREE.RingGeometry(.1,.16,40),
+    new THREE.MeshBasicMaterial({color:0xf0d060,transparent:true,opacity:0,side:THREE.DoubleSide,blending:THREE.AdditiveBlending})
+  );
+  r.rotation.x=-.42; protGrp.add(r);
+  shieldWaves.push({ring:r, phase:i*.45, sc:.1});
+}
+const dangerRing=new THREE.Mesh(
+  new THREE.RingGeometry(.1,.17,40),
+  new THREE.MeshBasicMaterial({color:0xff3d5a,transparent:true,opacity:0,side:THREE.DoubleSide,blending:THREE.AdditiveBlending})
+);
+dangerRing.rotation.x=-.42; protGrp.add(dangerRing);
+
+// ════════════════════════════════════════════
+//  5. CROSS-CHAIN NODES (step 3 — deploy)
+// ════════════════════════════════════════════
+const chainNodes=[];
+const chainDefs=[
+  {name:'ETH',  sub:'Mainnet',  col:0x00e8ff, pos:[-8.5,1.8,-2]},
+  {name:'ARB',  sub:'Arbitrum', col:0x8b9dff, pos:[ 8.5,2.2,-2]},
+  {name:'OP',   sub:'Optimism', col:0xff6b9d, pos:[ 7.5,-1.5,4.5]},
+  {name:'BASE', sub:'Base',     col:0x6366f1, pos:[-7.5,-1,0]},
+  {name:'USDC', sub:'Liquidity',col:0x4ade80, pos:[ 0,4,-9]},
+];
+chainDefs.forEach(({name,sub,col,pos})=>{
+  const g=new THREE.Group(); g.position.set(...pos); scene.add(g);
+  g.add(new THREE.Mesh(
+    new THREE.IcosahedronGeometry(.6,1),
+    new THREE.MeshPhysicalMaterial({color:col,transparent:true,opacity:.2,metalness:.5,roughness:.35,wireframe:false})
+  ));
+  g.add(new THREE.LineSegments(
+    new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(.62,1)),
+    new THREE.LineBasicMaterial({color:col,transparent:true,opacity:.45})
+  ));
+  const gl=gsp(col,2.2,.28); g.add(gl);
+  const nl=makeLabel(name,`#${col.toString(16).padStart(6,'0')}`,9,sub);
+  nl.position.set(0,-1.05,0); g.add(nl);
+  chainNodes.push({group:g, col, glow:gl, phase:Math.random()*Math.PI*2});
+});
+
+// ════════════════════════════════════════════
+//  6. YIELD HARVEST NODE (step 5)
+// ════════════════════════════════════════════
+const harvestGrp=new THREE.Group();
+harvestGrp.position.set(0,4.5,3);
+scene.add(harvestGrp);
+
+harvestGrp.add(new THREE.Mesh(
+  new THREE.OctahedronGeometry(.9,0),
+  new THREE.MeshPhysicalMaterial({color:0x0d2010,transparent:true,opacity:.8,metalness:.6,roughness:.3})
+));
+harvestGrp.add(new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.OctahedronGeometry(.92,0)),
+  new THREE.LineBasicMaterial({color:0x4ade80,transparent:true,opacity:.7})
+));
+const hGlow=gsp(0x4ade80,3,.2); harvestGrp.add(hGlow);
+const hLbl=makeLabel('YIELD HARVEST','#4ade80',10,'Auto-Compound · Emissions');
+hLbl.position.set(0,-1.45,0); harvestGrp.add(hLbl);
+const hStep=makePill('STEP 5 — HARVEST',0x4ade80);
+hStep.position.set(0,1.25,0); harvestGrp.add(hStep);
+
+// ════════════════════════════════════════════
+//  7. FLYWHEEL PATHS + PARTICLES
+// ════════════════════════════════════════════
+// All paths in world space
+const pathDefs=[
+  // Wallet user → Vault (deposit, cyan)
+  {pts:[new THREE.Vector3(-9,1,3.5),new THREE.Vector3(-7.5,.8,2.5),new THREE.Vector3(-6,.4,1.5)], col:0x00e8ff, step:0},
+  // Vault → Strat plates (allocation, gold)
+  {pts:[new THREE.Vector3(-6,.4,1.5),new THREE.Vector3(-6.5,2,1.5),new THREE.Vector3(-6,3.1,1.5)], col:0xf0d060, step:1},
+  // Vault → Core (routing, cyan)
+  {pts:[new THREE.Vector3(-6,.4,1.5),new THREE.Vector3(-3.5,.7,1),new THREE.Vector3(0,0,0)], col:0x00e8ff, step:1},
+  // Core → chains (deploy, various)
+  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(-4.5,1.2,-1.2),new THREE.Vector3(-8.5,1.8,-2)], col:0x00e8ff, step:2},
+  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(4.5,1.4,-1),new THREE.Vector3(8.5,2.2,-2)], col:0x8b9dff, step:2},
+  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(4,0,2.5),new THREE.Vector3(7.5,-1.5,4.5)], col:0xff6b9d, step:2},
+  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(-4,-0.2,0),new THREE.Vector3(-7.5,-1,0)], col:0x6366f1, step:2},
+  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(0,2.5,-5),new THREE.Vector3(0,4,-9)], col:0x4ade80, step:2},
+  // Core → Protection (risk guard, gold)
+  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(0,.5,-3.5),new THREE.Vector3(0,1,-6)], col:0xf0d060, step:3},
+  // Borrow ↔ Core (purple)
+  {pts:[new THREE.Vector3(6,0,1.2),new THREE.Vector3(3,.3,.7),new THREE.Vector3(0,0,0)], col:0x9b6dff, step:2},
+  // Chains → Harvest (yield return, green)
+  {pts:[new THREE.Vector3(-8.5,1.8,-2),new THREE.Vector3(-4,3.5,1),new THREE.Vector3(0,4.5,3)], col:0x4ade80, step:4},
+  {pts:[new THREE.Vector3(8.5,2.2,-2),new THREE.Vector3(4,3.8,1),new THREE.Vector3(0,4.5,3)], col:0x4ade80, step:4},
+  // Harvest → Core → Vault (flywheel return, gold+green)
+  {pts:[new THREE.Vector3(0,4.5,3),new THREE.Vector3(0,2.5,1.5),new THREE.Vector3(0,0,0)], col:0xf0d060, step:4},
+  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(-3,.5,1),new THREE.Vector3(-6,.4,1.5)], col:0xf0d060, step:5},
 ];
 
-let state='idle';
-let score=0,best=+(localStorage.getItem('cd_best')||0);
-let tvl=902.3,lives=3,wave=1,chain=1,chainTimer=0;
-let bullets=[],enemies=[],particles=[],floats=[],powerups=[];
-let player,enemiesLeft=0,waveEnemies=10,spawnInterval=80,spawnTimer=0;
-let activePU=null,puTimer=0;
-const keys={};
-let mouseX=W/2,mouseY=H-55,mouseDown=false;
+// Build tube meshes
+const pathCurves=[];
+pathDefs.forEach(({pts,col,step})=>{
+  const curve=new THREE.CatmullRomCurve3(pts);
+  const geo=new THREE.TubeGeometry(curve,28,.014,5,false);
+  const mat=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.3,blending:THREE.AdditiveBlending});
+  const mesh=new THREE.Mesh(geo,mat); scene.add(mesh);
+  pathCurves.push({curve,col,mat,step});
+});
 
-document.addEventListener('keydown',e=>{keys[e.key]=true;if(e.key===' ')e.preventDefault();if((e.key===' '||e.key==='Enter')&&(state==='idle'||state==='dead'))resetGame();});
-document.addEventListener('keyup',e=>{keys[e.key]=false;});
-function toX(cx){const r=canvas.getBoundingClientRect();return Math.max(LS/2,Math.min(W-LS/2,(cx-r.left)*(W/r.width)));}
-function toY(cy){const r=canvas.getBoundingClientRect();return Math.max(LS/2,Math.min(H-LS/2,(cy-r.top)*(H/r.height)));}
-canvas.addEventListener('mousemove',e=>{mouseX=toX(e.clientX);mouseY=toY(e.clientY);});
-canvas.addEventListener('mousedown',e=>{if(state==='idle'||state==='dead'){resetGame();return;}mouseDown=true;});
-canvas.addEventListener('mouseup',()=>{mouseDown=false;});
-canvas.addEventListener('mouseleave',()=>{mouseDown=false;});
-canvas.addEventListener('touchstart',e=>{e.preventDefault();if(state==='idle'||state==='dead'){resetGame();return;}mouseDown=true;mouseX=toX(e.touches[0].clientX);mouseY=toY(e.touches[0].clientY);},{passive:false});
-canvas.addEventListener('touchmove',e=>{e.preventDefault();mouseX=toX(e.touches[0].clientX);mouseY=toY(e.touches[0].clientY);},{passive:false});
-canvas.addEventListener('touchend',()=>{mouseDown=false;});
+// Flow particles
+const FLOW_N=500;
+const fPos=new Float32Array(FLOW_N*3), fProg=new Float32Array(FLOW_N);
+const fLane=new Uint8Array(FLOW_N), fCol=new Float32Array(FLOW_N*3);
+for(let i=0;i<FLOW_N;i++){
+  fProg[i]=Math.random(); fLane[i]=i%pathCurves.length;
+  const c=pathCurves[fLane[i]].col;
+  fCol[i*3]=(c>>16&255)/255; fCol[i*3+1]=(c>>8&255)/255; fCol[i*3+2]=(c&255)/255;
+}
+const fGeo=new THREE.BufferGeometry();
+fGeo.setAttribute('position',new THREE.BufferAttribute(fPos,3));
+fGeo.setAttribute('color',new THREE.BufferAttribute(fCol,3));
+const fPts=new THREE.Points(fGeo,new THREE.PointsMaterial({
+  size:.075, vertexColors:true, transparent:true, opacity:.9,
+  blending:THREE.AdditiveBlending, depthWrite:false,
+}));
+scene.add(fPts);
 
-function initPlayer(){player={x:W/2,y:H-55,speed:6,cooldown:0};}
-function saveBest(){if(score>best){best=score;localStorage.setItem('cd_best',best);}}
-function resetGame(){
-  score=0;tvl=902.3;lives=3;wave=1;chain=1;chainTimer=0;activePU=null;puTimer=0;
-  bullets=[];enemies=[];particles=[];floats=[];powerups=[];
-  waveEnemies=10;enemiesLeft=waveEnemies;spawnTimer=0;spawnInterval=80;
-  initPlayer();updateHUD();state='playing';
-}
-function updateHUD(){
-  document.getElementById('scoreEl').textContent=score.toLocaleString();
-  document.getElementById('tvlEl').textContent='$'+tvl.toFixed(1)+'M';
-  document.getElementById('waveEl').textContent=wave;
-  document.getElementById('chainEl').textContent='×'+chain;
-  document.getElementById('livesEl').textContent='❤️'.repeat(Math.max(0,lives));
-  document.getElementById('bestEl').textContent=best.toLocaleString();
-}
-function spawnEnemy(){
-  const maxT=Math.min(wave-1,ETYPES.length-1);
-  const t=ETYPES[Math.floor(Math.random()*(maxT+1))];
-  enemies.push({x:30+Math.random()*(W-60),y:-35,vx:(Math.random()-0.5)*1.5,vy:t.spd*(0.8+Math.random()*0.4),hp:t.hp+Math.floor(wave/3),maxHp:t.hp+Math.floor(wave/3),reward:t.reward,color:t.color,label:t.label,size:t.size,wobble:Math.random()*Math.PI*2});
-}
-function spawnPowerup(x,y){
-  if(Math.random()>0.2)return;
-  const p=PUPS[Math.floor(Math.random()*PUPS.length)];
-  powerups.push({x,y,vy:0.9,color:p.color,label:p.label,effect:p.effect,desc:p.desc,duration:p.duration,life:1,wobble:0});
-}
-function spawnParticles(x,y,color,n){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=1.5+Math.random()*3;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,color});}}
-function spawnFloat(x,y,txt,color){floats.push({x,y:y-10,txt,life:1,color:color||'#F5E98A'});}
-function fireBullet(){
-  if(player.cooldown>0)return;
-  player.cooldown=activePU==='rapidfire'?4:9;
-  if(activePU==='multishot'){
-    bullets.push({x:player.x-10,y:player.y-20,vx:-1.5,vy:-12});
-    bullets.push({x:player.x,   y:player.y-24,vx:0,   vy:-12});
-    bullets.push({x:player.x+10,y:player.y-20,vx:1.5, vy:-12});
-  }else{bullets.push({x:player.x,y:player.y-24,vx:0,vy:-12});}
-}
-function doBomb(){
-  enemies.forEach(e=>{const pts=e.reward*chain;score+=pts;tvl+=pts*0.01;spawnParticles(e.x,e.y,e.color,14);spawnFloat(e.x,e.y-20,'+'+pts);});
-  enemies=[];spawnParticles(W/2,H/2,'#F5E98A',60);spawnFloat(W/2,H/2-30,'VAULT NUKED!','#F5E98A');updateHUD();
+// ════════════════════════════════════════════
+//  8. BORROWER NODES (risk layer)
+// ════════════════════════════════════════════
+const borrowerNodes=[];
+for(let i=0;i<5;i++){
+  const a=(i/5)*Math.PI*2;
+  const bg=new THREE.Group();
+  bg.position.set(Math.cos(a)*4.2,-1.2+Math.sin(a*.8)*.4,Math.sin(a)*4.2);
+  scene.add(bg);
+  const bm=new THREE.Mesh(new THREE.SphereGeometry(.2,10,7),new THREE.MeshBasicMaterial({color:0x0048a8,blending:THREE.AdditiveBlending}));
+  bg.add(bm);
+  const bgl=gsp(0x00e8ff,.9,.4); bg.add(bgl);
+  borrowerNodes.push({group:bg,mesh:bm,glow:bgl,phase:Math.random()*Math.PI*2,alert:false});
 }
 
-let stars=null;
-function drawStars(){
-  if(!stars)stars=Array.from({length:80},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.4+0.2,a:0.08+Math.random()*0.35,vy:0.04+Math.random()*0.1}));
-  stars.forEach(s=>{s.y+=s.vy;if(s.y>H)s.y=0;ctx.globalAlpha=s.a;ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();});
-  ctx.globalAlpha=1;
-}
-function drawGrid(){
-  ctx.strokeStyle='rgba(245,233,138,0.025)';ctx.lineWidth=0.5;
-  for(let x=0;x<W;x+=44){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
-  for(let y=0;y<H;y+=44){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
-}
-function drawPlayer(){
-  ctx.save();ctx.shadowColor='#F5E98A';ctx.shadowBlur=activePU?22:10;
-  ctx.drawImage(logoCanvas,player.x-LS/2,player.y-LS/2,LS,LS);ctx.shadowBlur=0;
-  const grad=ctx.createLinearGradient(player.x,player.y+LS/2,player.x,player.y+LS/2+22);
-  grad.addColorStop(0,'rgba(245,233,138,0.95)');grad.addColorStop(1,'rgba(245,233,138,0)');
-  ctx.fillStyle=grad;ctx.beginPath();
-  ctx.moveTo(player.x-8,player.y+LS/2-3);
-  ctx.lineTo(player.x,player.y+LS/2+20+Math.sin(Date.now()/80)*5);
-  ctx.lineTo(player.x+8,player.y+LS/2-3);
-  ctx.closePath();ctx.fill();ctx.restore();
-}
-function drawShield(){
-  if(activePU!=='shield')return;
-  ctx.save();ctx.strokeStyle=`rgba(245,233,138,${0.3+0.2*Math.sin(Date.now()/120)})`;
-  ctx.lineWidth=2;ctx.shadowColor='#F5E98A';ctx.shadowBlur=14;
-  ctx.beginPath();ctx.arc(player.x,player.y,LS/2+12,0,Math.PI*2);ctx.stroke();ctx.restore();
-}
-function drawEnemy(e){
-  e.wobble+=0.05;const wx=Math.sin(e.wobble)*3;
-  ctx.save();ctx.shadowColor=e.color;ctx.shadowBlur=10;ctx.fillStyle=e.color;
-  ctx.beginPath();ctx.arc(e.x+wx,e.y,e.size,0,Math.PI*2);ctx.fill();
-  ctx.shadowBlur=0;ctx.fillStyle='#fff';
-  ctx.font=`bold ${Math.max(7,e.size*0.38)}px monospace`;ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(e.label,e.x+wx,e.y);
-  if(e.maxHp>1){const bw=e.size*1.7,bx=e.x+wx-bw/2,by=e.y+e.size+5;ctx.fillStyle='#222';ctx.fillRect(bx,by,bw,4);ctx.fillStyle=e.color;ctx.fillRect(bx,by,bw*(e.hp/e.maxHp),4);}
-  ctx.restore();
-}
-function drawBullet(b){ctx.save();ctx.shadowColor='#F5E98A';ctx.shadowBlur=8;ctx.fillStyle='#F5E98A';ctx.fillRect(b.x-2,b.y-8,4,16);ctx.restore();}
-function drawPowerup(p){
-  p.wobble+=0.06;const bob=Math.sin(p.wobble)*4;
-  ctx.save();ctx.shadowColor=p.color;ctx.shadowBlur=14;ctx.fillStyle=p.color;
-  rrect(ctx,p.x-22,p.y-12+bob,44,24,6);ctx.fill();
-  ctx.shadowBlur=0;ctx.fillStyle='#000';
-  ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(p.label,p.x,p.y+bob);ctx.restore();
-}
-function drawPUBar(){
-  if(!activePU||!puTimer)return;
-  const max=PUPS.find(p=>p.effect===activePU)?.duration||300;
-  ctx.fillStyle='rgba(245,233,138,0.1)';ctx.fillRect(8,H-10,W-16,4);
-  ctx.fillStyle='#F5E98A';ctx.fillRect(8,H-10,(W-16)*(puTimer/max),4);
-}
-let tickerX=W;
-function drawTicker(){
-  const text='  CONCRETE.XYZ  ·  TVL: $'+tvl.toFixed(1)+'M  ·  ASSETS PROCESSED: $11.24B  ·  BACKED BY POLYCHAIN & YZI LABS  ·  WAVE: '+wave+'  ·  CHAIN ×'+chain+'  ';
-  ctx.save();ctx.fillStyle='rgba(245,233,138,0.06)';ctx.fillRect(0,0,W,18);
-  ctx.fillStyle='rgba(245,233,138,0.5)';ctx.font='9px monospace';ctx.textAlign='left';ctx.textBaseline='middle';
-  const tw=ctx.measureText(text).width;
-  tickerX-=0.7;if(tickerX<-tw)tickerX=W;
-  ctx.fillText(text,tickerX,9);ctx.fillText(text,tickerX+tw,9);ctx.restore();
-}
-function drawOverlay(title,sub1,sub2,tc){
-  ctx.fillStyle='rgba(10,10,10,0.85)';ctx.fillRect(W/2-210,H/2-85,420,170);
-  ctx.strokeStyle='rgba(245,233,138,0.18)';ctx.lineWidth=0.5;ctx.strokeRect(W/2-210,H/2-85,420,170);
-  ctx.fillStyle=tc||'#F5E98A';ctx.font='bold 24px monospace';ctx.textAlign='center';ctx.textBaseline='middle';
-  ctx.fillText(title,W/2,H/2-38);
-  ctx.fillStyle='#555';ctx.font='12px monospace';ctx.fillText(sub1,W/2,H/2+2);
-  ctx.fillStyle='#F5E98A';ctx.font='12px monospace';ctx.fillText(sub2,W/2,H/2+28);
-}
+// ════════════════════════════════════════════
+//  9. MANUAL DEFI (comparison)
+// ════════════════════════════════════════════
+const defiGrp=new THREE.Group();
+defiGrp.position.set(-11.5,-1.5,2);
+scene.add(defiGrp);
 
-function loop(){
-  ctx.clearRect(0,0,W,H);
-  drawGrid();drawStars();
+[[-1.6,.3,0],[0,.7,-.5],[1.6,.2,.3],[-.9,-.6,.2],[.9,-.3,-.4],[0,-1.1,0]].forEach((p)=>{
+  const g=new THREE.Group(); g.position.set(...p);
+  const b=new THREE.Mesh(new THREE.BoxGeometry(.5+Math.random()*.3,.38,.38),
+    new THREE.MeshPhysicalMaterial({color:0x1a0808,metalness:.6,roughness:.4}));
+  g.add(b);
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(b.geometry),
+    new THREE.LineBasicMaterial({color:0xff3d5a,transparent:true,opacity:.3})));
+  defiGrp.add(g);
+});
 
-  if(state==='idle'){
-    ctx.save();ctx.shadowColor='#F5E98A';ctx.shadowBlur=30;
-    ctx.drawImage(logoCanvas,W/2-40,H/2-115,80,80);ctx.restore();
-    drawOverlay('CONCRETE DEFENDER','Protect the vault. Destroy the threats.','[ CLICK OR SPACE TO START ]');
-    drawTicker();requestAnimationFrame(loop);return;
+// Broken bridges
+[[new THREE.Vector3(-1.6,.3,0),new THREE.Vector3(-.4,.4,.1),new THREE.Vector3(.5,.6,-.2)],
+ [new THREE.Vector3(.9,-.3,-.4),new THREE.Vector3(1.3,.1,.2)]].forEach(pts=>{
+  defiGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
+    new THREE.LineBasicMaterial({color:0xff3d5a,transparent:true,opacity:.22})));
+});
+
+const dGlow=gsp(0xff3d5a,4.5,.1); defiGrp.add(dGlow);
+const dLbl=makeLabel('MANUAL DEFI','#ff3d5a',10,'High Friction · Slow Settlement');
+dLbl.position.set(0,-2.1,0); defiGrp.add(dLbl);
+const dSubLbl=makeLabel('Gas: ●●●●● — Slippage: High','#ff7730',7.5);
+dSubLbl.position.set(0,-2.7,0); defiGrp.add(dSubLbl);
+
+// Gas flames
+const FLAME_N=70, flPos=new Float32Array(FLAME_N*3), flProg=new Float32Array(FLAME_N);
+for(let i=0;i<FLAME_N;i++) flProg[i]=Math.random();
+const flGeo=new THREE.BufferGeometry(); flGeo.setAttribute('position',new THREE.BufferAttribute(flPos,3));
+const flPts=new THREE.Points(flGeo,new THREE.PointsMaterial({size:.07,color:0xff7730,transparent:true,opacity:.75,blending:THREE.AdditiveBlending,depthWrite:false}));
+defiGrp.add(flPts);
+
+// Slow red particles
+const manCurve=new THREE.CatmullRomCurve3([new THREE.Vector3(-1.6,.3,0),new THREE.Vector3(-.4,.4,.1),new THREE.Vector3(.5,.6,-.2)]);
+const MANP_N=20, mpPos=new Float32Array(MANP_N*3), mpProg=new Float32Array(MANP_N);
+for(let i=0;i<MANP_N;i++) mpProg[i]=(i/MANP_N);
+const mpGeo=new THREE.BufferGeometry(); mpGeo.setAttribute('position',new THREE.BufferAttribute(mpPos,3));
+const mpPts=new THREE.Points(mpGeo,new THREE.PointsMaterial({size:.06,color:0xff3d5a,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false}));
+defiGrp.add(mpPts);
+
+// ════════════════════════════════════════════
+//  MINI CHART (right panel)
+// ════════════════════════════════════════════
+const chartCanvas=document.getElementById('mini-chart');
+const chartCtx=chartCanvas.getContext('2d');
+const chartData=Array.from({length:30},(_,i)=>2400+Math.sin(i*.5)*60+Math.random()*40);
+
+function drawMiniChart(){
+  chartCanvas.width=chartCanvas.offsetWidth||180;
+  chartCanvas.height=36;
+  const {width:cw,height:ch}=chartCanvas;
+  chartCtx.clearRect(0,0,cw,ch);
+  const mn=Math.min(...chartData), mx=Math.max(...chartData);
+  const pts=chartData.map((v,i)=>({x:(i/(chartData.length-1))*cw,y:ch-((v-mn)/(mx-mn))*(ch-4)-2}));
+  const gr=chartCtx.createLinearGradient(0,0,0,ch);
+  gr.addColorStop(0,'rgba(240,208,96,.35)'); gr.addColorStop(1,'rgba(240,208,96,0)');
+  chartCtx.beginPath(); chartCtx.moveTo(pts[0].x,ch);
+  pts.forEach(p=>chartCtx.lineTo(p.x,p.y));
+  chartCtx.lineTo(pts[pts.length-1].x,ch); chartCtx.closePath();
+  chartCtx.fillStyle=gr; chartCtx.fill();
+  chartCtx.beginPath(); chartCtx.moveTo(pts[0].x,pts[0].y);
+  pts.forEach(p=>chartCtx.lineTo(p.x,p.y));
+  chartCtx.strokeStyle='rgba(240,208,96,.8)'; chartCtx.lineWidth=1.5; chartCtx.stroke();
+}
+drawMiniChart();
+
+// ════════════════════════════════════════════
+//  EVENT LOG
+// ════════════════════════════════════════════
+const eventMessages=[
+  {col:'#00e8ff',text:'<span>+$89k</span> deposited — ETH vault'},
+  {col:'#f0d060',text:'Strategy rebalance → <span>+0.3% APR</span>'},
+  {col:'#4ade80',text:'Yield harvest: <span>$41,228</span> compounded'},
+  {col:'#9b6dff',text:'CONCRETE emissions <span>distributed to vault</span>'},
+  {col:'#ff3d5a',text:'<span>🛡 Protection</span> — position saved'},
+  {col:'#8b9dff',text:'ARB bridge: <span>$2.1M</span> deployed'},
+  {col:'#f0d060',text:'APR updated → <span>14.6%</span>'},
+  {col:'#4ade80',text:'Flywheel cycle <span>#1,847</span> complete'},
+];
+let evIdx=0;
+function addEvent(){
+  const log=document.getElementById('event-log');
+  const ev=eventMessages[evIdx%eventMessages.length]; evIdx++;
+  const div=document.createElement('div'); div.className='ev-row';
+  div.innerHTML=`<div class="ev-dot" style="background:${ev.col}"></div><div class="ev-text">${ev.text}</div>`;
+  log.insertBefore(div,log.firstChild);
+  if(log.children.length>8) log.removeChild(log.lastChild);
+  // Update chart
+  chartData.push(chartData[chartData.length-1]+(Math.random()-.3)*25);
+  if(chartData.length>30) chartData.shift();
+  drawMiniChart();
+}
+setInterval(addEvent,3200);
+
+// TVL shimmer
+let tvlBase=2412847331;
+setInterval(()=>{
+  tvlBase+=Math.floor((Math.random()-.25)*120000);
+  document.getElementById('tvl-live').textContent='$'+tvlBase.toLocaleString();
+  const apr=(14.2+Math.sin(Date.now()*.0003)*2.1).toFixed(1);
+  document.getElementById('apr-live').textContent=`APR: ${apr}%`;
+},2500);
+
+// ════════════════════════════════════════════
+//  STEP TRACKER (6-step flywheel)
+// ════════════════════════════════════════════
+const stepDefs=[
+  {focus:vaultGrp.position.clone(), phase:'DEPOSIT FLOW',       pct:18},
+  {focus:new THREE.Vector3(-6,3,1.5), phase:'STRATEGY ROUTING', pct:35},
+  {focus:new THREE.Vector3(0,0,0),    phase:'CROSS-CHAIN DEPLOY',pct:55},
+  {focus:protGrp.position.clone(),    phase:'PROTECTION ACTIVE', pct:72},
+  {focus:harvestGrp.position.clone(), phase:'YIELD HARVEST',     pct:88},
+  {focus:new THREE.Vector3(0,0,0),    phase:'FLYWHEEL RESTART ↺',pct:100},
+];
+
+function setStep(idx){
+  S.currentStep=idx;
+  document.querySelectorAll('.step').forEach((el,i)=>{
+    el.classList.remove('active','done');
+    if(i===idx) el.classList.add('active');
+    else if(i<idx) el.classList.add('done');
+  });
+  const sd=stepDefs[idx];
+  document.getElementById('ph-v').textContent=sd.phase;
+  document.getElementById('ph-f').style.width=sd.pct+'%';
+  // Highlight relevant path tubes
+  pathCurves.forEach(({mat,step})=>{
+    mat.opacity=step===idx ? .55 : .22;
+  });
+}
+setStep(0);
+
+// Step click
+document.querySelectorAll('.step').forEach((el,i)=>{
+  el.addEventListener('click',()=>{
+    S.stepTimer=0; setStep(i);
+    const sf=stepDefs[i].focus;
+    S.focusTarget.copy(sf);
+    S.camR=Math.max(9,S.camR*.85);
+  });
+});
+
+// ════════════════════════════════════════════
+//  CONTROLS
+// ════════════════════════════════════════════
+const cvs=renderer.domElement;
+const ray=new THREE.Raycaster();
+const mNDC=new THREE.Vector2();
+
+cvs.addEventListener('mousedown',e=>{S.mouse.down=true;S.mouse.lx=e.clientX;S.mouse.ly=e.clientY;S.autoRotate=false});
+cvs.addEventListener('mousemove',e=>{
+  if(S.mouse.down){
+    S.camTheta-=(e.clientX-S.mouse.lx)*.007;
+    S.camPhi=Math.max(.06,Math.min(1.38,S.camPhi+(e.clientY-S.mouse.ly)*.007));
+    S.mouse.lx=e.clientX;S.mouse.ly=e.clientY;
   }
-  if(state==='dead'){
-    drawOverlay('VAULT DRAINED','CONC earned: '+score.toLocaleString()+'  |  Wave '+wave,'[ CLICK OR SPACE TO RETRY ]','#E24B4A');
-    drawTicker();requestAnimationFrame(loop);return;
+  mNDC.x=(e.clientX/W)*2-1; mNDC.y=-(e.clientY/H)*2+1;
+  ray.setFromCamera(mNDC,camera);
+  const moduleObjs=[vaultGrp,borrowGrp,protGrp,harvestGrp,coreGrp].map(g=>g.children[0]).filter(Boolean);
+  const hits=ray.intersectObjects(moduleObjs,true);
+  const tip=document.getElementById('tooltip');
+  if(hits.length){
+    const mods=[
+      {g:coreGrp,n:'Concrete Core',d:'Protocol settlement & routing hub'},
+      {g:vaultGrp,n:'Earn Vault',d:'Auto-compounding multi-strategy vault'},
+      {g:borrowGrp,n:'Borrow Router',d:'Cross-chain rate optimization engine'},
+      {g:protGrp,n:'Protection Engine',d:'3-tranche liquidation prevention'},
+      {g:harvestGrp,n:'Yield Harvest',d:'Auto-compound + emissions distributor'},
+    ];
+    let found; const obj=hits[0].object;
+    mods.forEach(m=>{let o=obj;while(o){if(o===m.g){found=m;break;}o=o.parent;}});
+    if(found){tip.textContent=`${found.n} · ${found.d}`;tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-12)+'px';tip.style.opacity='1';}
+  } else tip.style.opacity='0';
+});
+cvs.addEventListener('mouseup',()=>S.mouse.down=false);
+cvs.addEventListener('wheel',e=>{S.camR=Math.max(5,Math.min(28,S.camR+e.deltaY*.013));},{passive:true});
+cvs.addEventListener('dblclick',()=>{S.autoRotate=!S.autoRotate;S.focusTarget.set(0,0,0);});
+cvs.addEventListener('click',e=>{
+  mNDC.x=(e.clientX/W)*2-1; mNDC.y=-(e.clientY/H)*2+1;
+  ray.setFromCamera(mNDC,camera);
+  const hits=ray.intersectObjects(scene.children,true);
+  if(hits.length){
+    [[coreGrp,0],[vaultGrp,1],[borrowGrp,2],[protGrp,3],[harvestGrp,4]].forEach(([g,si])=>{
+      let o=hits[0].object;while(o){if(o===g){S.focusTarget.lerp(g.position,.5);S.camR=9;setStep(si);S.stepTimer=0;break;}o=o.parent;}
+    });
+  }
+});
+cvs.addEventListener('touchstart',e=>{S.mouse.down=true;S.mouse.lx=e.touches[0].clientX;S.mouse.ly=e.touches[0].clientY;S.autoRotate=false;},{passive:true});
+cvs.addEventListener('touchmove',e=>{if(!S.mouse.down)return;S.camTheta-=(e.touches[0].clientX-S.mouse.lx)*.007;S.camPhi=Math.max(.06,Math.min(1.38,S.camPhi+(e.touches[0].clientY-S.mouse.ly)*.007));S.mouse.lx=e.touches[0].clientX;S.mouse.ly=e.touches[0].clientY;},{passive:true});
+cvs.addEventListener('touchend',()=>S.mouse.down=false,{passive:true});
+
+document.getElementById('tog-prot').addEventListener('change',e=>S.showProt=e.target.checked);
+document.getElementById('tog-defi').addEventListener('change',e=>{S.showDefi=e.target.checked;defiGrp.visible=e.target.checked;});
+document.getElementById('tog-labels').addEventListener('change',e=>{
+  S.showLabels=e.target.checked;
+  [vStep,bStep,protStep,hStep].forEach(s=>s.visible=e.target.checked);
+});
+document.getElementById('slid-liq').addEventListener('input',e=>{
+  S.liq=e.target.value/100;document.getElementById('liq-val').textContent=e.target.value+'%';
+  fPts.material.opacity=.5+S.liq*.55;
+});
+document.getElementById('slid-risk').addEventListener('input',e=>{
+  S.risk=e.target.value/100;const r=e.target.value;
+  document.getElementById('risk-val').textContent=r<34?'Low':r<67?'Medium':'High';
+});
+
+function flashScreen(col='rgba(240,208,96,0.18)'){
+  const f=document.getElementById('flash');
+  f.style.background=`radial-gradient(ellipse at center,${col} 0%,transparent 65%)`;
+  f.style.opacity='1'; setTimeout(()=>{f.style.opacity='.25';},180); setTimeout(()=>{f.style.opacity='0';},600);
+}
+
+// ════════════════════════════════════════════
+//  ANIMATION LOOP
+// ════════════════════════════════════════════
+const clock=new THREE.Clock();
+let t=0, protCycle=0;
+const PROT_INTERVAL=16;
+let protFired=false;
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt=clock.getDelta(); t+=dt;
+
+  // ── Auto-step through flywheel ──
+  S.stepTimer+=dt;
+  if(S.stepTimer>S.STEP_DUR){S.stepTimer=0;setStep((S.currentStep+1)%6);}
+  // Pulse step focus
+  if(S.autoRotate){
+    const sf=stepDefs[S.currentStep].focus;
+    S.focusTarget.lerp(sf,.025);
   }
 
-  player.x=mouseX;player.y=mouseY;
-  if(keys['ArrowLeft']||keys['a'])player.x=Math.max(LS/2,player.x-player.speed);
-  if(keys['ArrowRight']||keys['d'])player.x=Math.min(W-LS/2,player.x+player.speed);
-  if(keys['ArrowUp']||keys['w'])player.y=Math.max(LS/2,player.y-player.speed);
-  if(keys['ArrowDown']||keys['s'])player.y=Math.min(H-LS/2,player.y+player.speed);
+  // ── Camera ──
+  if(S.autoRotate) S.camTheta+=dt*.055;
+  const cx=S.camR*Math.sin(S.camTheta)*Math.cos(S.camPhi);
+  const cy=S.camR*Math.sin(S.camPhi)+1.2;
+  const cz=S.camR*Math.cos(S.camTheta)*Math.cos(S.camPhi);
+  camera.position.lerp(new THREE.Vector3(cx,cy,cz),.055);
+  camera.lookAt(S.focusTarget);
+  S.focusTarget.lerp(new THREE.Vector3(0,.5,0),.006);
 
-  if(player.cooldown>0)player.cooldown--;
-  if(mouseDown||keys[' '])fireBullet();
-  if(puTimer>0){puTimer--;if(puTimer===0)activePU=null;}
-  if(chainTimer>0){chainTimer--;if(chainTimer===0){chain=1;updateHUD();}}
+  // ── Core ──
+  const cp=.85+.15*Math.sin(t*1.8);
+  coreMesh.material.opacity=.08+.05*cp;
+  coreGlow.material.opacity=.12+.07*cp;
+  coreInnerGlow.material.opacity=.04+.04*cp;
+  goldPt.intensity=1.4+.7*cp;
+  coreGrp.position.y=Math.sin(t*.65)*.09;
+  coreWire.rotation.y+=dt*.09; coreWire.rotation.x+=dt*.055;
+  frameAngles.forEach((_,i)=>{ if(coreGrp.children[4+i]) coreGrp.children[4+i].rotation.z+=dt*(.08+i*.04);});
 
-  spawnTimer++;
-  if(enemiesLeft>0&&spawnTimer>=spawnInterval){spawnTimer=0;spawnEnemy();enemiesLeft--;spawnInterval=Math.max(15,80-wave*5);}
-  if(enemiesLeft===0&&enemies.length===0){
-    wave++;waveEnemies=10+wave*4;enemiesLeft=waveEnemies;spawnTimer=0;
-    chain=Math.min(chain+1,10);spawnFloat(W/2,H/2,'WAVE '+wave+'!  CHAIN ×'+chain,'#F5E98A');updateHUD();
+  // ── Vault ──
+  vaultGrp.position.y=.4+Math.sin(t*.8+1)*.13;
+  vFill.scale.y=.65+.35*Math.abs(Math.sin(t*1.2));
+  vFill.material.opacity=.16+.1*Math.sin(t*2.3);
+
+  // ── Strategy plates ──
+  stratPlates.forEach(({group,phase,col},i)=>{
+    group.rotation.y+=dt*.35;
+    group.position.y=3.1+i*1.05+Math.sin(t*.7+phase)*.08;
+    const act=S.currentStep===1||S.currentStep===5;
+    group.children[0].material.opacity=act?.35:.18;
+    const gspEl=group.children[2];
+    if(gspEl) gspEl.material.opacity=act?.22:.08;
+  });
+
+  // ── Rate bars ──
+  rateBars.forEach(({bar,phase,baseH},i)=>{
+    const h=baseH*(.6+.8*(.5+.5*Math.sin(t*1.9+phase)));
+    bar.scale.y=h/baseH;
+    bar.position.y=1.9+baseH*bar.scale.y/2;
+    bar.material.opacity=.4+.3*Math.sin(t*2.4+phase);
+  });
+  borrowGrp.position.y=Math.sin(t*.55+.4)*.11;
+
+  // ── Protection ──
+  protGrp.rotation.y+=dt*.12;
+  shieldFace.material.opacity=.07+.055*Math.sin(t*1.6);
+
+  // ── Harvest ──
+  harvestGrp.rotation.y+=dt*.6;
+  harvestGrp.position.y=4.5+Math.sin(t*1.1+2)*.14;
+  hGlow.material.opacity=.14+.1*Math.sin(t*2.2);
+
+  // ── Chain nodes ──
+  chainNodes.forEach(({group,glow,phase})=>{
+    group.rotation.y+=dt*.18;
+    glow.material.opacity=.18+.13*Math.sin(t*2+phase);
+  });
+
+  // ── Flow particles ──
+  const fArr=fGeo.attributes.position.array;
+  const speedMul=.12+S.liq*.15;
+  for(let i=0;i<FLOW_N;i++){
+    fProg[i]+=dt*speedMul*(0.9+Math.random()*.2);
+    if(fProg[i]>1) fProg[i]=0;
+    const lane=fLane[i];
+    const pt=pathCurves[lane].curve.getPoint(Math.max(0,Math.min(1,fProg[i])));
+    fArr[i*3]=pt.x; fArr[i*3+1]=pt.y; fArr[i*3+2]=pt.z;
   }
+  fGeo.attributes.position.needsUpdate=true;
 
-  bullets=bullets.filter(b=>b.y>-10);
-  bullets.forEach(b=>{b.x+=b.vx;b.y+=b.vy;});
-  enemies.forEach(e=>{e.x+=e.vx;e.y+=e.vy;if(e.x<e.size||e.x>W-e.size)e.vx*=-1;});
+  // ── Borrower nodes ──
+  borrowerNodes.forEach(({group,mesh,glow,phase,alert})=>{
+    group.rotation.y+=dt*.45;
+    const p=.5+.5*Math.sin(t*3+phase);
+    glow.material.opacity=.22+.18*p;
+    mesh.material.color.set(alert?0xff3d5a:0x0048a8);
+    glow.material.color.set(alert?0xff3d5a:0x00e8ff);
+  });
 
-  bullets=bullets.filter(b=>{
-    for(let i=enemies.length-1;i>=0;i--){
-      const e=enemies[i],dx=b.x-e.x,dy=b.y-e.y;
-      if(Math.sqrt(dx*dx+dy*dy)<e.size+5){
-        e.hp--;
-        if(e.hp<=0){const pts=e.reward*chain;score+=pts;tvl+=pts*0.02;spawnParticles(e.x,e.y,e.color,12);spawnFloat(e.x,e.y-22,'+'+pts);spawnPowerup(e.x,e.y);chain=Math.min(chain+1,10);chainTimer=140;enemies.splice(i,1);updateHUD();}
-        else spawnParticles(e.x,e.y,e.color,4);
-        return false;
+  // ── Protection event cycle ──
+  if(S.showProt){
+    protCycle+=dt;
+    const pp=(protCycle%PROT_INTERVAL)/PROT_INTERVAL;
+    if(pp>.48&&pp<.82){
+      const ds=(pp-.48)/.34;
+      dangerRing.material.opacity=.45*(1-ds);
+      dangerRing.scale.setScalar(.4+ds*7);
+      if(!protFired&&pp>.54){
+        protFired=true;
+        const bn=borrowerNodes[Math.floor(Math.random()*5)];
+        bn.alert=true;
+        setTimeout(()=>bn.alert=false,5500);
+        flashScreen('rgba(255,61,90,0.1)');
+        addEvent(); // force event
       }
+    } else { dangerRing.material.opacity=0; }
+    if(pp>.68&&pp<.94){
+      const sp=(pp-.68)/.26;
+      shieldWaves.forEach(({ring},i)=>{
+        ring.scale.setScalar(.3+sp*4+i*.9);
+        ring.material.opacity=Math.max(0,.65-sp*.75-i*.18);
+      });
+      protGlow.material.opacity=.28+.2*Math.sin(t*9);
+      goldPt.intensity=2.8+Math.sin(t*11)*.9;
+    } else {
+      shieldWaves.forEach(({ring})=>ring.material.opacity*=.9);
+      goldPt.intensity+=(1.4-goldPt.intensity)*.05;
     }
-    return true;
+    if(pp<.04){ protFired=false; }
+    if(pp>.67&&pp<.71) flashScreen('rgba(240,208,96,0.14)');
+  }
+
+  // ── Manual DeFi ──
+  const fpa=flGeo.attributes.position.array;
+  for(let i=0;i<FLAME_N;i++){
+    flProg[i]+=dt*(.35+Math.random()*.12); if(flProg[i]>1) flProg[i]=0;
+    fpa[i*3]=(Math.random()-.5)*2.8; fpa[i*3+1]=-1.2+flProg[i]*2.2; fpa[i*3+2]=(Math.random()-.5)*1.4;
+    flPts.material.opacity=.5+.25*Math.sin(t*4.5);
+  }
+  flGeo.attributes.position.needsUpdate=true;
+  const mpa=mpGeo.attributes.position.array;
+  for(let i=0;i<MANP_N;i++){
+    mpProg[i]+=dt*.038; if(mpProg[i]>1) mpProg[i]=0;
+    const pt=manCurve.getPoint(mpProg[i]);
+    mpa[i*3]=pt.x; mpa[i*3+1]=pt.y; mpa[i*3+2]=pt.z;
+  }
+  mpGeo.attributes.position.needsUpdate=true;
+  defiGrp.children.filter(c=>c.isLine).forEach((l,i)=>{
+    l.material.opacity=Math.random()<.025?.7:(.18+.08*Math.sin(t*2.5+i));
   });
 
-  enemies=enemies.filter(e=>{
-    if(e.y>H+20){
-      if(activePU==='shield'){spawnFloat(W/2,H/2,'SHIELD BLOCKED!','#F5E98A');return false;}
-      lives--;chain=1;chainTimer=0;tvl=Math.max(0,tvl-5);
-      spawnFloat(W/2,H/2,'VAULT HIT! -$5M','#E24B4A');updateHUD();
-      if(lives<=0){saveBest();state='dead';}
-      return false;
-    }
-    return true;
-  });
+  // Light colors shift with step
+  const stepColors=[0x00e8ff,0xf0d060,0x00e8ff,0xf0d060,0x4ade80,0xf0d060];
+  const sc=stepColors[S.currentStep];
+  cyanPt.color.set(sc===0x00e8ff?0x00e8ff:sc);
+  cyanPt.intensity=0.8+.3*Math.sin(t*3);
 
-  powerups=powerups.filter(p=>{
-    p.y+=p.vy;p.life-=0.004;
-    const dx=p.x-player.x,dy=p.y-player.y;
-    if(Math.sqrt(dx*dx+dy*dy)<LS/2+22){
-      if(p.effect==='bomb')doBomb();
-      else{activePU=p.effect;puTimer=p.duration;}
-      spawnFloat(p.x,p.y-20,p.desc,p.color);return false;
-    }
-    return p.y<H+20&&p.life>0;
-  });
-
-  particles=particles.filter(p=>p.life>0);
-  particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vx*=0.91;p.vy*=0.91;p.life-=0.033;ctx.globalAlpha=p.life;ctx.fillStyle=p.color;ctx.fillRect(p.x-2,p.y-2,4,4);});
-  ctx.globalAlpha=1;
-
-  floats=floats.filter(f=>f.life>0);
-  floats.forEach(f=>{f.y-=0.85;f.life-=0.017;ctx.globalAlpha=f.life;ctx.fillStyle=f.color;ctx.font='bold 13px monospace';ctx.textAlign='center';ctx.fillText(f.txt,f.x,f.y);});
-  ctx.globalAlpha=1;
-
-  enemies.forEach(drawEnemy);
-  powerups.forEach(drawPowerup);
-  bullets.forEach(drawBullet);
-  drawShield();drawPlayer();drawPUBar();drawTicker();
-  requestAnimationFrame(loop);
+  renderer.render(scene,camera);
 }
 
-updateHUD();
-loop();
+animate();
+
+window.addEventListener('resize',()=>{
+  const W=innerWidth,H=innerHeight;
+  renderer.setSize(W,H); camera.aspect=W/H; camera.updateProjectionMatrix();
+  drawMiniChart();
+});
 </script>
 </body>
 </html>
