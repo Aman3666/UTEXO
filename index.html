@@ -55,6 +55,25 @@ canvas {
 <script>
 const canvas=document.getElementById('c');
 const ctx=canvas.getContext('2d');
+  // ===== 🔊 SOUND SYSTEM =====
+const shootSound = new Audio("https://actions.google.com/sounds/v1/alarms/beep_short.ogg");
+const hitSound = new Audio("https://actions.google.com/sounds/v1/cartoon/clang_and_wobble.ogg");
+const powerSound = new Audio("https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg");
+const bombSound = new Audio("https://actions.google.com/sounds/v1/explosions/explosion.ogg");
+const gameoverSound = new Audio("https://actions.google.com/sounds/v1/cartoon/cartoon_boing.ogg");
+
+function playS(s){
+  s.currentTime = 0;
+  s.play();
+}
+
+let audioUnlocked=false;
+canvas.addEventListener("click",()=>{
+  if(!audioUnlocked){
+    shootSound.play().then(()=>shootSound.pause());
+    audioUnlocked=true;
+  }
+});
 const W=660,H=460;
 canvas.width=W;canvas.height=H;
 
