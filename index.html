@@ -3,1409 +3,849 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Concrete — Cross-Chain Yield Engine</title>
+<title>UTEXO - Stablecoin Execution Layer</title>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;600;700;800&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#020a18; overflow:hidden; font-family:'Courier New',monospace; }
+canvas { display:block; cursor:grab; }
+canvas.dragging-obj { cursor:move; }
+canvas.orbiting { cursor:grabbing; }
 
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --gold:#f0d060;--gold2:#e8b830;--gold3:#c89420;--gold-dim:rgba(240,208,96,0.12);
-  --cyan:#00e8ff;--cyan2:#00b8d4;--cyan-dim:rgba(0,232,255,0.12);
-  --purple:#9b6dff;--purple2:#6b3ddf;
-  --red:#ff3d5a;--orange:#ff7730;--green:#4ade80;
-  --navy:#020810;--panel:rgba(3,9,20,0.94);
-  --bg:rgba(240,208,96,0.22);--bc:rgba(0,232,255,0.18);
-  --text:#c8dce8;--dim:#4a6a80;
-  --fd:'Syne',sans-serif;--fm:'DM Mono',monospace;
-  --panel-w:290px;
+/* floating label */
+.lbl {
+  position:absolute; pointer-events:none;
+  transform:translate(-50%,-50%);
+  text-align:center; z-index:10;
 }
-html,body{width:100vw;height:100%;min-height:100vh;overflow:hidden;background:var(--navy);font-family:var(--fd);color:var(--text);-webkit-tap-highlight-color:transparent}
-canvas{display:block;position:fixed;inset:0;z-index:0}
-body::after{content:'';position:fixed;inset:0;z-index:310;pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.025) 2px,rgba(0,0,0,0.025) 4px)}
-body::before{content:'';position:fixed;inset:0;z-index:1;pointer-events:none;
-  background:radial-gradient(ellipse at 50% 38%,transparent 42%,rgba(2,8,16,.72) 100%)}
-
-/* ═══════════ MOBILE DRAWER TOGGLE ═══════════ */
-#menu-btn{
-  display:none;position:fixed;top:14px;left:14px;z-index:400;
-  width:40px;height:40px;border-radius:10px;
-  background:rgba(240,208,96,.12);border:1px solid rgba(240,208,96,.28);
-  cursor:pointer;align-items:center;justify-content:center;flex-direction:column;gap:5px;
-  backdrop-filter:blur(12px);transition:background .2s;
+.lbl-line { width:1px; height:14px; margin:0 auto; }
+.lbl-box {
+  display:inline-block; padding:3px 10px 2px;
+  border-radius:4px 4px 0 0;
+  font-size:10px; font-weight:900;
+  letter-spacing:0.12em; text-transform:uppercase; white-space:nowrap;
 }
-#menu-btn:active{background:rgba(240,208,96,.22)}
-#menu-btn span{display:block;width:18px;height:1.5px;background:var(--gold);border-radius:2px;transition:all .3s}
-#menu-btn.open span:nth-child(1){transform:rotate(45deg) translate(4px,4px)}
-#menu-btn.open span:nth-child(2){opacity:0}
-#menu-btn.open span:nth-child(3){transform:rotate(-45deg) translate(4px,-4px)}
-
-/* ═══════════ LEFT PANEL ═══════════ */
-#panel-left{
-  position:fixed;top:0;left:0;bottom:0;width:var(--panel-w);z-index:300;
-  background:linear-gradient(180deg,rgba(3,9,20,.98) 0%,rgba(2,6,14,.97) 100%);
-  border-right:1px solid rgba(240,208,96,.14);
-  display:flex;flex-direction:column;overflow:hidden;
-  transition:transform .35s cubic-bezier(.4,0,.2,1);
-}
-.panel-glow-line{height:2px;background:linear-gradient(90deg,transparent,var(--gold),var(--gold2),transparent);flex-shrink:0}
-.panel-scroll{flex:1;overflow-y:auto;overflow-x:hidden;padding:18px 18px 24px;
-  scrollbar-width:thin;scrollbar-color:rgba(240,208,96,.2) transparent}
-.panel-scroll::-webkit-scrollbar{width:3px}
-.panel-scroll::-webkit-scrollbar-thumb{background:rgba(240,208,96,.2);border-radius:2px}
-
-/* Brand */
-.brand{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-.bc-logo{width:34px;height:34px;background:var(--gold);border-radius:6px;flex-shrink:0;
-  display:flex;align-items:center;justify-content:center;box-shadow:0 0 16px rgba(240,208,96,.35)}
-.bc-logo span{font-family:Georgia,serif;font-size:19px;font-weight:700;color:#1a1200;letter-spacing:-.5px}
-.brand-name{font-size:17px;font-weight:800;color:var(--gold);letter-spacing:2px;text-transform:uppercase;line-height:1}
-.brand-tag{font-family:var(--fm);font-size:8.5px;color:var(--dim);letter-spacing:1.8px;text-transform:uppercase;margin-bottom:16px}
-
-.div{height:1px;background:linear-gradient(90deg,transparent,rgba(240,208,96,.18),transparent);margin:12px 0}
-
-/* Stats */
-.sg{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px}
-.sc{background:var(--gold-dim);border:1px solid rgba(240,208,96,.1);border-radius:8px;padding:8px 10px;transition:border-color .3s,background .3s}
-.sc:active{border-color:rgba(240,208,96,.3);background:rgba(240,208,96,.08)}
-.sc.wide{grid-column:1/-1}
-.sc.cyan-card{background:var(--cyan-dim);border-color:rgba(0,232,255,.12)}
-.sc.cyan-card .sv{color:var(--cyan)}
-.sv{font-family:var(--fm);font-size:12.5px;color:var(--gold);font-weight:500;line-height:1}
-.sl{font-size:8.5px;color:var(--dim);margin-top:3px;letter-spacing:.5px;text-transform:uppercase}
-
-/* Steps */
-.flow-title{font-family:var(--fm);font-size:9px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px;display:flex;align-items:center;gap:8px}
-.flow-title::after{content:'';flex:1;height:1px;background:rgba(240,208,96,.12)}
-.step-list{display:flex;flex-direction:column;gap:0}
-.step{display:flex;align-items:flex-start;gap:10px;padding:9px 4px;border-bottom:1px solid rgba(240,208,96,.06);cursor:pointer;transition:background .2s;border-radius:6px;position:relative}
-.step:last-child{border-bottom:none}
-.step:active{background:rgba(240,208,96,.06)}
-.step.active{background:rgba(240,208,96,.07)}
-.step.active .step-num{background:var(--gold);color:#1a1200;box-shadow:0 0 10px rgba(240,208,96,.5)}
-.step.active .step-name{color:var(--gold)}
-.step.active .step-desc{color:var(--text)}
-.step.done .step-num{background:rgba(240,208,96,.15);color:var(--gold)}
-.step-num{width:22px;height:22px;border-radius:50%;flex-shrink:0;margin-top:1px;background:rgba(240,208,96,.06);border:1px solid rgba(240,208,96,.2);display:flex;align-items:center;justify-content:center;font-family:var(--fm);font-size:9px;color:var(--dim);font-weight:500;transition:all .3s}
-.step-body{flex:1}
-.step-name{font-size:11px;font-weight:600;color:var(--dim);transition:color .3s;letter-spacing:.3px;margin-bottom:2px}
-.step-desc{font-family:var(--fm);font-size:9px;color:var(--dim);opacity:.7;line-height:1.5;transition:color .3s}
-.step-tag{display:inline-block;font-family:var(--fm);font-size:8px;padding:2px 6px;border-radius:3px;margin-top:4px;letter-spacing:.5px;text-transform:uppercase}
-.tag-cyan{background:rgba(0,232,255,.1);color:var(--cyan);border:1px solid rgba(0,232,255,.2)}
-.tag-gold{background:rgba(240,208,96,.1);color:var(--gold);border:1px solid rgba(240,208,96,.2)}
-.tag-purple{background:rgba(155,109,255,.1);color:var(--purple);border:1px solid rgba(155,109,255,.2)}
-.tag-red{background:rgba(255,61,90,.1);color:var(--red);border:1px solid rgba(255,61,90,.2)}
-.tag-green{background:rgba(74,222,128,.1);color:var(--green);border:1px solid rgba(74,222,128,.2)}
-.step-connector{width:1px;height:8px;background:rgba(240,208,96,.12);margin-left:14px}
-
-/* Controls */
-.ctrl-section{margin-bottom:12px}
-.ctrl-head{font-family:var(--fm);font-size:8.5px;color:var(--dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px}
-.tr{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.tl{font-family:var(--fm);font-size:9px;color:var(--dim);letter-spacing:.5px;text-transform:uppercase}
-.tog{position:relative;width:36px;height:19px;cursor:pointer;flex-shrink:0}
-.tog input{display:none}
-.tt{position:absolute;inset:0;border-radius:19px;background:rgba(240,208,96,.07);border:1px solid rgba(240,208,96,.18);transition:.25s}
-.tk{position:absolute;top:3px;left:3px;width:11px;height:11px;border-radius:50%;background:rgba(240,208,96,.3);transition:.25s}
-.tog input:checked~.tt{background:rgba(240,208,96,.18);border-color:var(--gold)}
-.tog input:checked~.tk{transform:translateX(17px);background:var(--gold);box-shadow:0 0 8px var(--gold)}
-.sw{margin-bottom:10px}
-.sh{display:flex;justify-content:space-between;margin-bottom:5px}
-.shl{font-family:var(--fm);font-size:9px;color:var(--dim);letter-spacing:.5px;text-transform:uppercase}
-.shv{font-family:var(--fm);font-size:9px;color:var(--gold)}
-input[type=range]{-webkit-appearance:none;width:100%;height:4px;background:rgba(240,208,96,.14);border-radius:2px;outline:none;cursor:pointer}
-input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:var(--gold);cursor:pointer;box-shadow:0 0 8px var(--gold)}
-
-/* Phase bar */
-#ph{background:rgba(240,208,96,.04);border:1px solid rgba(240,208,96,.1);border-radius:8px;padding:9px 11px}
-#ph-t{font-family:var(--fm);font-size:8.5px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
-#ph-b{height:3px;background:rgba(240,208,96,.1);border-radius:3px;overflow:hidden;margin-bottom:5px}
-#ph-f{height:100%;background:linear-gradient(90deg,var(--gold3),var(--gold));border-radius:3px;transition:width .5s ease;width:0%}
-#ph-v{font-family:var(--fm);font-size:10px;color:var(--gold);letter-spacing:.5px}
-
-/* ═══════════ RIGHT PANEL ═══════════ */
-#panel-right{
-  position:fixed;top:14px;right:14px;width:210px;z-index:200;
-  display:flex;flex-direction:column;gap:8px;
-  transition:opacity .3s,transform .3s;
-}
-.r-card{background:rgba(3,9,20,.9);border:1px solid rgba(240,208,96,.14);border-radius:10px;padding:11px 13px;backdrop-filter:blur(18px);box-shadow:0 0 30px rgba(240,208,96,.05)}
-.r-card.cyan-border{border-color:rgba(0,232,255,.18)}
-.live-row{display:flex;align-items:center;gap:6px;font-family:var(--fm);font-size:9px;color:rgba(240,208,96,.5);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px}
-.ld{width:5px;height:5px;border-radius:50%;background:var(--gold);box-shadow:0 0 6px var(--gold);animation:lp 1.4s ease-in-out infinite}
-@keyframes lp{0%,100%{opacity:1}50%{opacity:.15}}
-.ld.cyan{background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
-#tvl-live{font-family:var(--fm);font-size:19px;font-weight:500;color:var(--gold);letter-spacing:.5px;line-height:1}
-#tvl-sub{font-family:var(--fm);font-size:8px;color:var(--dim);letter-spacing:1.5px;text-transform:uppercase;margin-top:3px}
-#mini-chart{height:32px;position:relative;margin-top:6px}
-#mini-chart canvas{width:100%!important;height:100%!important}
-#event-log{max-height:90px;overflow-y:auto;scrollbar-width:none}
-#event-log::-webkit-scrollbar{display:none}
-.ev-row{display:flex;align-items:flex-start;gap:6px;padding:3px 0;border-bottom:1px solid rgba(240,208,96,.05);font-family:var(--fm);font-size:8px}
-.ev-row:last-child{border-bottom:none}
-.ev-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;margin-top:2px}
-.ev-text{color:var(--dim);line-height:1.4}
-.ev-text span{color:var(--text)}
-
-/* ═══════════ BOTTOM HUD ═══════════ */
-#bottom-hud{
-  position:fixed;bottom:0;left:0;right:0;z-index:200;
-  display:flex;align-items:center;justify-content:space-between;
-  padding:8px 16px 10px;
-  background:linear-gradient(0deg,rgba(2,8,16,.9) 0%,transparent 100%);
-  pointer-events:none;
-}
-#leg{display:flex;align-items:center;gap:12px;flex-wrap:wrap;pointer-events:none}
-.li{display:flex;align-items:center;gap:4px;font-family:var(--fm);font-size:7.5px;color:var(--dim);letter-spacing:.4px;text-transform:uppercase;white-space:nowrap}
-.ld2{width:5px;height:5px;border-radius:50%;flex-shrink:0}
-#status{font-family:var(--fm);font-size:7.5px;color:rgba(0,232,255,.2);letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap}
-
-/* ═══════════ MOBILE STEP STRIP (bottom pill) ═══════════ */
-#step-strip{
-  display:none;position:fixed;bottom:52px;left:50%;transform:translateX(-50%);
-  z-index:250;background:rgba(3,9,20,.92);border:1px solid rgba(240,208,96,.2);
-  border-radius:24px;padding:6px 12px;backdrop-filter:blur(16px);
-  display:none;align-items:center;gap:8px;
-}
-#step-strip-txt{font-family:var(--fm);font-size:10px;color:var(--gold);letter-spacing:.5px;white-space:nowrap}
-#step-strip-num{font-family:var(--fm);font-size:9px;color:var(--dim)}
-
-/* ═══════════ OVERLAY (mobile drawer backdrop) ═══════════ */
-#overlay{
-  display:none;position:fixed;inset:0;z-index:290;
-  background:rgba(2,8,16,.6);backdrop-filter:blur(2px);
-  opacity:0;transition:opacity .3s;
-}
-#overlay.show{opacity:1}
-
-/* ═══════════ FLASH + TOOLTIP ═══════════ */
-#flash{position:fixed;inset:0;z-index:260;pointer-events:none;background:radial-gradient(ellipse at center,rgba(240,208,96,.18) 0%,transparent 65%);opacity:0;transition:opacity .15s}
-#tooltip{position:fixed;z-index:230;pointer-events:none;background:rgba(3,9,20,.94);border:1px solid var(--bg);border-radius:8px;padding:7px 11px;font-family:var(--fm);font-size:9px;color:var(--gold);letter-spacing:.5px;backdrop-filter:blur(14px);opacity:0;transition:opacity .2s;white-space:nowrap;max-width:200px;white-space:normal}
-
-/* Corners */
-.orn{position:fixed;width:20px;height:20px;z-index:200;pointer-events:none;opacity:.2}
-.orn-tr{top:7px;right:235px;border-top:1.5px solid var(--gold);border-right:1.5px solid var(--gold)}
-.orn-br{bottom:7px;right:7px;border-bottom:1.5px solid var(--gold);border-right:1.5px solid var(--gold)}
-
-/* ═══════════════════════════════════════
-   MOBILE BREAKPOINT  (≤ 768px)
-═══════════════════════════════════════ */
-@media (max-width:768px){
-  :root{--panel-w:min(88vw,320px)}
-
-  #menu-btn{display:flex}
-
-  /* Panel slides off-screen by default */
-  #panel-left{
-    transform:translateX(calc(-1 * var(--panel-w) - 4px));
-    box-shadow:4px 0 40px rgba(0,0,0,.6);
-  }
-  #panel-left.open{transform:translateX(0)}
-
-  /* Overlay shown when panel open */
-  #overlay{display:block}
-
-  /* Right panel: compact, top-right but smaller */
-  #panel-right{
-    top:14px;right:14px;width:150px;gap:6px;
-  }
-  #panel-right .r-card:nth-child(2),
-  #panel-right .r-card:nth-child(3){display:none}
-  #tvl-live{font-size:14px}
-  #tvl-sub{display:none}
-  #mini-chart{height:24px}
-
-  /* Bottom HUD simplified */
-  #leg{gap:8px}
-  .li{font-size:7px}
-  #status{display:none}
-
-  /* Show step strip */
-  #step-strip{display:flex}
-
-  /* Corners hidden on mobile */
-  .orn{display:none}
+.lbl-sub {
+  display:inline-block; padding:2px 8px 3px;
+  border-radius:0 0 4px 4px;
+  font-size:7.5px; letter-spacing:0.06em; white-space:nowrap;
 }
 
-/* ═══════════════════════════════════════
-   TABLET  (769px–1024px)
-═══════════════════════════════════════ */
-@media (min-width:769px) and (max-width:1024px){
-  :root{--panel-w:260px}
-  #panel-right{width:180px}
-  #tvl-live{font-size:16px}
-  #panel-right .r-card:nth-child(3){display:none}
-  #menu-btn{display:none}
-  #overlay{display:none!important}
-}
+.c-cyan   .lbl-box { background:#00c8ff; color:#000; }
+.c-cyan   .lbl-sub { background:rgba(0,80,140,0.93); color:#7df4ff; }
+.c-cyan   .lbl-line { background:#00c8ff; }
+.c-green  .lbl-box { background:#00e87a; color:#000; }
+.c-green  .lbl-sub { background:rgba(0,55,28,0.93); color:#7affc0; }
+.c-green  .lbl-line { background:#00e87a; }
+.c-gold   .lbl-box { background:#ffb300; color:#000; }
+.c-gold   .lbl-sub { background:rgba(52,30,0,0.93); color:#ffd980; }
+.c-gold   .lbl-line { background:#ffb300; }
+.c-red    .lbl-box { background:#ff3c3c; color:#fff; }
+.c-red    .lbl-sub { background:rgba(52,0,0,0.93); color:#ff9090; }
+.c-red    .lbl-line { background:#ff3c3c; }
+.c-purple .lbl-box { background:#b44fff; color:#fff; }
+.c-purple .lbl-sub { background:rgba(36,0,62,0.93); color:#d8a0ff; }
+.c-purple .lbl-line { background:#b44fff; }
+.c-yellow .lbl-box { background:#f5e800; color:#000; }
+.c-yellow .lbl-sub { background:rgba(40,36,0,0.93); color:#fff9a0; }
+.c-yellow .lbl-line { background:#f5e800; }
+.c-blue   .lbl-box { background:#3a8eff; color:#fff; }
+.c-blue   .lbl-sub { background:rgba(8,24,62,0.93); color:#9ac4ff; }
+.c-blue   .lbl-line { background:#3a8eff; }
 
-/* ═══════════════════════════════════════
-   LARGE DESKTOP  (≥ 1400px)
-═══════════════════════════════════════ */
-@media (min-width:1400px){
-  :root{--panel-w:310px}
-  #panel-right{width:230px}
+/* panels */
+#lp, #rp {
+  position:fixed; top:18px;
+  background:rgba(2,8,22,0.92);
+  border:1px solid rgba(0,200,255,0.2);
+  border-radius:12px; padding:16px;
+  backdrop-filter:blur(18px); z-index:100; color:#d8f0ff;
 }
+#lp { left:18px; width:240px; }
+#rp { right:18px; width:220px; max-height:calc(100vh-80px); overflow-y:auto; }
+#rp::-webkit-scrollbar { width:3px; }
+#rp::-webkit-scrollbar-thumb { background:rgba(0,180,255,0.3); }
 
-<script>
-// Fix 100vh on mobile browsers
-function setVH(){document.documentElement.style.setProperty('--vh',window.innerHeight*.01+'px');}
-setVH();window.addEventListener('resize',setVH);
-</script>
+h1 { font-size:14px; font-weight:900; letter-spacing:0.2em; color:#00d4ff;
+     text-shadow:0 0 16px #00d4ff88; margin-bottom:2px; }
+.sub { font-size:7.5px; color:rgba(0,200,255,0.45); letter-spacing:0.1em;
+       text-transform:uppercase; margin-bottom:12px; padding-bottom:10px;
+       border-bottom:1px solid rgba(0,200,255,0.1); }
+.lt { font-size:7px; letter-spacing:0.12em; text-transform:uppercase;
+      color:rgba(0,200,255,0.5); margin-bottom:6px; margin-top:10px; }
+.leg { display:flex; align-items:center; gap:7px; margin-bottom:4px; }
+.dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.leg span { font-size:8.5px; color:rgba(200,235,255,0.8); }
+.ct { margin-top:12px; padding-top:10px; border-top:1px solid rgba(0,200,255,0.1); }
+.cl { font-size:7px; letter-spacing:0.1em; text-transform:uppercase;
+      color:rgba(0,200,255,0.55); display:block; margin-bottom:4px; }
+.rw { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+.rw span { font-size:8.5px; color:rgba(200,235,255,0.8); }
+.tog { width:30px; height:15px; background:rgba(0,60,100,0.5); border-radius:8px;
+       cursor:pointer; position:relative;
+       border:1px solid rgba(0,180,255,0.25); transition:background .25s; }
+.tog.on { background:rgba(0,160,255,0.45); border-color:rgba(0,210,255,0.5); }
+.tog::after { content:''; position:absolute; width:9px; height:9px;
+              background:#0099cc; border-radius:50%; top:2px; left:2px;
+              transition:transform .25s; box-shadow:0 0 5px #0099ccaa; }
+.tog.on::after { transform:translateX(15px); background:#00ffcc; }
+.sr { margin-bottom:7px; }
+.sh { display:flex; justify-content:space-between; margin-bottom:2px; }
+.sv { font-size:8px; color:#00d4ff; }
+input[type=range] { width:100%; height:2px; -webkit-appearance:none;
+                    background:rgba(0,160,255,0.2); border-radius:2px;
+                    outline:none; cursor:pointer; }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:11px; height:11px;
+  border-radius:50%; background:#00d4ff; cursor:pointer; box-shadow:0 0 8px #00d4ffaa; }
+
+h2 { font-size:9px; font-weight:900; letter-spacing:0.16em; color:#00d4ff;
+     margin-bottom:9px; padding-bottom:7px;
+     border-bottom:1px solid rgba(0,200,255,0.15);
+     text-shadow:0 0 12px #00d4ff66; }
+.pr { border-left:3px solid; border-radius:5px; padding:6px 8px; margin-bottom:6px; }
+.pn { font-size:8px; font-weight:900; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:2px; }
+.pd { font-size:7px; line-height:1.5; color:rgba(180,215,255,0.65); }
+
+/* bottom bar */
+#bar { position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+       background:rgba(2,8,22,0.88); border:1px solid rgba(0,200,255,0.18);
+       border-radius:18px; padding:6px 20px;
+       font-size:8.5px; color:rgba(140,210,255,0.65);
+       letter-spacing:0.09em; z-index:100; white-space:nowrap; }
+
+/* tx counter */
+#txb { position:fixed; bottom:50px; left:50%; transform:translateX(-50%);
+       background:rgba(2,8,22,0.9); border:1px solid rgba(0,230,100,0.3);
+       border-radius:8px; padding:6px 18px; z-index:100; text-align:center; }
+.tl { font-size:6.5px; color:rgba(0,230,100,0.5); letter-spacing:0.12em; text-transform:uppercase; }
+.tv { font-size:15px; color:#00e878; font-weight:900; text-shadow:0 0 10px #00e87880; }
+
+/* inspect popup */
+#tip { position:fixed; bottom:92px; left:50%; transform:translateX(-50%);
+       background:rgba(2,8,22,0.96); border:1px solid rgba(0,200,255,0.3);
+       border-radius:9px; padding:10px 16px;
+       font-size:9px; color:#88deff; letter-spacing:0.06em; line-height:1.6;
+       z-index:200; max-width:440px; text-align:center; display:none; }
+#tip strong { color:#00d4ff; font-size:10.5px; display:block; margin-bottom:3px; }
+
+/* drag hint badge */
+#drag-hint {
+  position:fixed; top:18px; left:50%; transform:translateX(-50%);
+  background:rgba(0,180,255,0.15); border:1px solid rgba(0,200,255,0.35);
+  border-radius:20px; padding:5px 16px;
+  font-size:8px; color:#00d4ff; letter-spacing:0.12em;
+  z-index:100; white-space:nowrap;
+  animation: fadeHint 4s forwards;
+}
+@keyframes fadeHint { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
 </style>
 </head>
 <body>
 
 <!-- LEFT PANEL -->
-<!-- MOBILE MENU BUTTON -->
-<button id="menu-btn" aria-label="Menu">
-  <span></span><span></span><span></span>
-</button>
+<div id="lp">
+  <h1>UTEXO</h1>
+  <div class="sub">Bitcoin-Anchored Stablecoin Execution</div>
 
-<!-- MOBILE OVERLAY -->
-<div id="overlay"></div>
+  <div class="lt">Color Legend</div>
+  <div class="leg"><div class="dot" style="background:#00d4ff;box-shadow:0 0 5px #00d4ff"></div><span>UTEXO Engine &amp; Routing</span></div>
+  <div class="leg"><div class="dot" style="background:#00e87a;box-shadow:0 0 5px #00e87a"></div><span>USDT Payment Packets</span></div>
+  <div class="leg"><div class="dot" style="background:#ffb300;box-shadow:0 0 5px #ffb300"></div><span>Bitcoin / Settlement</span></div>
+  <div class="leg"><div class="dot" style="background:#b44fff;box-shadow:0 0 5px #b44fff"></div><span>RGB Asset Channels</span></div>
+  <div class="leg"><div class="dot" style="background:#ff3c3c;box-shadow:0 0 5px #ff3c3c"></div><span>Public Chain Chaos</span></div>
+  <div class="leg"><div class="dot" style="background:#f5e800;box-shadow:0 0 5px #f5e800"></div><span>Deterministic Fees</span></div>
+  <div class="leg"><div class="dot" style="background:#3a8eff;box-shadow:0 0 5px #3a8eff"></div><span>API / SDK Layer</span></div>
 
-<div id="panel-left">
-  <div class="panel-glow-line"></div>
-  <div class="panel-scroll">
+  <div class="ct">
+    <span class="cl">Toggle Layers</span>
+    <div class="rw"><span>Lightning Routing</span><div class="tog on" id="t1"></div></div>
+    <div class="rw"><span>Bitcoin Anchoring</span><div class="tog on" id="t2"></div></div>
+    <div class="rw"><span>Public Chain</span><div class="tog on" id="t3"></div></div>
+    <div class="rw"><span>RGB Ribbons</span><div class="tog on" id="t4"></div></div>
+    <div class="rw"><span>API Hologram</span><div class="tog on" id="t5"></div></div>
+  </div>
 
-    <div class="brand">
-      <div class="bc-logo"><span>C̄</span></div>
-      <div>
-        <div class="brand-name">Concrete</div>
-      </div>
+  <div style="margin-top:10px">
+    <div class="sr">
+      <div class="sh"><span class="cl" style="margin:0">Payment Speed</span><span class="sv" id="v1">70%</span></div>
+      <input type="range" id="r1" min="5" max="100" value="70">
     </div>
-    <div class="brand-tag">Cross-Chain Yield Engine · Protocol v3.1</div>
-
-    <div class="sg">
-      <div class="sc"><div class="sv">$2.4B</div><div class="sl">TVL</div></div>
-      <div class="sc"><div class="sv">+38%</div><div class="sl">Yield Boost</div></div>
-      <div class="sc"><div class="sv">92%</div><div class="sl">Liq. Saved</div></div>
-      <div class="sc"><div class="sv">12</div><div class="sl">Chains</div></div>
-      <div class="sc wide cyan-card"><div class="sv" id="apr-live">APR: 14.2%</div><div class="sl">Live Strategy Performance · Auto-Optimizing</div></div>
+    <div class="sr">
+      <div class="sh"><span class="cl" style="margin:0">Congestion Level</span><span class="sv" id="v2">40%</span></div>
+      <input type="range" id="r2" min="10" max="100" value="40">
     </div>
-
-    <div class="div"></div>
-
-    <!-- HOW IT RUNS -->
-    <div class="flow-title">How It Runs</div>
-    <div class="step-list" id="step-list">
-
-      <div class="step active" data-step="0">
-        <div class="step-num">1</div>
-        <div class="step-body">
-          <div class="step-name">User Deposits</div>
-          <div class="step-desc">Assets flow from your wallet into the Earn Vault. Concrete accepts any token across 12+ chains.</div>
-          <span class="step-tag tag-cyan">Vault Entry</span>
-        </div>
-      </div>
-      <div class="step-connector"></div>
-
-      <div class="step" data-step="1">
-        <div class="step-num">2</div>
-        <div class="step-body">
-          <div class="step-name">Strategy Routing</div>
-          <div class="step-desc">Capital is allocated across 3 strategy layers — Passive Lending, Ecosystem ETF, and Leveraged positions.</div>
-          <span class="step-tag tag-gold">Capital Allocation</span>
-        </div>
-      </div>
-      <div class="step-connector"></div>
-
-      <div class="step" data-step="2">
-        <div class="step-num">3</div>
-        <div class="step-body">
-          <div class="step-name">Cross-Chain Deployment</div>
-          <div class="step-desc">The Protocol Core bridges liquidity to highest-yield chains via optimized routing paths in real-time.</div>
-          <span class="step-tag tag-purple">Bridge & Deploy</span>
-        </div>
-      </div>
-      <div class="step-connector"></div>
-
-      <div class="step" data-step="3">
-        <div class="step-num">4</div>
-        <div class="step-body">
-          <div class="step-name">Liquidation Guard</div>
-          <div class="step-desc">If a borrowed position approaches liquidation, the Protection Engine auto-deploys 3 tranche shields before any loss occurs.</div>
-          <span class="step-tag tag-red">Risk Prevention</span>
-        </div>
-      </div>
-      <div class="step-connector"></div>
-
-      <div class="step" data-step="4">
-        <div class="step-num">5</div>
-        <div class="step-body">
-          <div class="step-name">Yield Harvest</div>
-          <div class="step-desc">Returns auto-compound back through the Protocol Core, boosted by CONCRETE emission rewards.</div>
-          <span class="step-tag tag-green">Compounding</span>
-        </div>
-      </div>
-      <div class="step-connector"></div>
-
-      <div class="step" data-step="5">
-        <div class="step-num">6</div>
-        <div class="step-body">
-          <div class="step-name">Flywheel Restarts</div>
-          <div class="step-desc">Earned yield + emissions re-enter the vault, increasing TVL and boosting the next cycle's APR for all depositors.</div>
-          <span class="step-tag tag-gold">Auto-Compound</span>
-        </div>
-      </div>
-
-    </div>
-
-    <div class="div"></div>
-
-    <!-- CONTROLS -->
-    <div class="ctrl-section">
-      <div class="ctrl-head">Controls</div>
-      <div class="tr">
-        <span class="tl">Protection Events</span>
-        <label class="tog"><input type="checkbox" id="tog-prot" checked><div class="tt"></div><div class="tk"></div></label>
-      </div>
-      <div class="tr">
-        <span class="tl">Manual DeFi Comparison</span>
-        <label class="tog"><input type="checkbox" id="tog-defi" checked><div class="tt"></div><div class="tk"></div></label>
-      </div>
-      <div class="tr">
-        <span class="tl">Show Step Labels</span>
-        <label class="tog"><input type="checkbox" id="tog-labels" checked><div class="tt"></div><div class="tk"></div></label>
-      </div>
-    </div>
-
-    <div class="sw">
-      <div class="sh"><span class="shl">Liquidity Intensity</span><span class="shv" id="liq-val">70%</span></div>
-      <input type="range" id="slid-liq" min="10" max="100" value="70">
-    </div>
-    <div class="sw">
-      <div class="sh"><span class="shl">Strategy Risk Level</span><span class="shv" id="risk-val">Medium</span></div>
-      <input type="range" id="slid-risk" min="0" max="100" value="50">
-    </div>
-
-    <div id="ph">
-      <div id="ph-t">Protocol Phase</div>
-      <div id="ph-b"><div id="ph-f"></div></div>
-      <div id="ph-v">YIELD ROUTING ACTIVE</div>
-    </div>
-
   </div>
 </div>
 
 <!-- RIGHT PANEL -->
-<div id="panel-right">
-  <div class="r-card">
-    <div class="live-row"><span class="ld"></span>LIVE TVL</div>
-    <div id="tvl-live">$2,412,847,331</div>
-    <div id="tvl-sub">Total Value Locked — 12 Chains</div>
-    <canvas id="mini-chart" width="180" height="36"></canvas>
-  </div>
-
-  <div class="r-card cyan-border">
-    <div class="live-row"><span class="ld cyan"></span>EVENT LOG</div>
-    <div id="event-log">
-      <div class="ev-row"><div class="ev-dot" style="background:#00e8ff"></div><div class="ev-text"><span>+$142k</span> deposited via ETH vault</div></div>
-      <div class="ev-row"><div class="ev-dot" style="background:#f0d060"></div><div class="ev-text">Strategy rebalanced → <span>+0.4% APR</span></div></div>
-      <div class="ev-row"><div class="ev-dot" style="background:#4ade80"></div><div class="ev-text">Yield harvested: <span>$28,441</span></div></div>
-      <div class="ev-row"><div class="ev-dot" style="background:#9b6dff"></div><div class="ev-text">CONCRETE emissions <span>distributed</span></div></div>
-    </div>
-  </div>
-
-  <div class="r-card">
-    <div class="live-row"><span class="ld"></span>CHAIN ROUTING</div>
-    <div style="display:flex;flex-direction:column;gap:5px" id="chain-bars">
-      <div style="display:flex;align-items:center;gap:7px;font-family:var(--fm);font-size:9px;color:var(--dim)">
-        <span style="width:32px">ETH</span>
-        <div style="flex:1;height:3px;background:rgba(0,232,255,.1);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:68%;background:var(--cyan);border-radius:2px;box-shadow:0 0 4px var(--cyan)"></div></div>
-        <span style="color:var(--cyan)">68%</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:7px;font-family:var(--fm);font-size:9px;color:var(--dim)">
-        <span style="width:32px">ARB</span>
-        <div style="flex:1;height:3px;background:rgba(155,109,255,.1);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:22%;background:var(--purple);border-radius:2px;box-shadow:0 0 4px var(--purple)"></div></div>
-        <span style="color:var(--purple)">22%</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:7px;font-family:var(--fm);font-size:9px;color:var(--dim)">
-        <span style="width:32px">BASE</span>
-        <div style="flex:1;height:3px;background:rgba(240,208,96,.1);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:10%;background:var(--gold);border-radius:2px;box-shadow:0 0 4px var(--gold)"></div></div>
-        <span style="color:var(--gold)">10%</span>
-      </div>
-    </div>
-  </div>
+<div id="rp">
+  <h2>All 18 Processes</h2>
+  <div class="pr" style="border-color:#00e87a;background:rgba(0,232,122,0.05)"><div class="pn" style="color:#00e87a">1. Payment Origination</div><div class="pd">Merchant creates USDT tx. The green cube flying left to right.</div></div>
+  <div class="pr" style="border-color:#00d4ff;background:rgba(0,212,255,0.05)"><div class="pn" style="color:#00d4ff">2. Lightning Tunnel Entry</div><div class="pd">Packet enters off-chain Lightning channel. No public blockchain.</div></div>
+  <div class="pr" style="border-color:#00d4ff;background:rgba(0,212,255,0.05)"><div class="pn" style="color:#00d4ff">3. Liquidity Routing</div><div class="pd">Cyan nodes pick fastest route through available liquidity.</div></div>
+  <div class="pr" style="border-color:#00d4ff;background:rgba(0,212,255,0.05)"><div class="pn" style="color:#00d4ff">4. Engine Entry</div><div class="pd">Packet reaches UTEXO core. 4-layer processing begins.</div></div>
+  <div class="pr" style="border-color:#4499ff;background:rgba(0,85,204,0.06)"><div class="pn" style="color:#4499ff">5. Routing Layer</div><div class="pd">Bottom layer. Picks optimal internal path for execution.</div></div>
+  <div class="pr" style="border-color:#55aaff;background:rgba(0,102,221,0.06)"><div class="pn" style="color:#55aaff">6. Liquidity Layer</div><div class="pd">Second layer. Manages pool depths, prevents slippage.</div></div>
+  <div class="pr" style="border-color:#66bbff;background:rgba(0,136,238,0.06)"><div class="pn" style="color:#66bbff">7. Execution Layer</div><div class="pd">Third layer. Atomic debit sender, credit receiver.</div></div>
+  <div class="pr" style="border-color:#77ccff;background:rgba(0,170,240,0.06)"><div class="pn" style="color:#77ccff">8. Settlement Coord.</div><div class="pd">Top layer. Batches txs into one cryptographic commitment.</div></div>
+  <div class="pr" style="border-color:#b44fff;background:rgba(180,79,255,0.05)"><div class="pn" style="color:#b44fff">9. RGB Asset Channels</div><div class="pd">Coloured ribbons. USDT is an RGB client-validated contract.</div></div>
+  <div class="pr" style="border-color:#f5e800;background:rgba(245,232,0,0.04)"><div class="pn" style="color:#f5e800">10. Deterministic Fees</div><div class="pd">Yellow rings. Same fixed fee every tx — no gas auction.</div></div>
+  <div class="pr" style="border-color:#ffb300;background:rgba(255,179,0,0.05)"><div class="pn" style="color:#ffb300">11. Commitment Beam</div><div class="pd">Gold beam carrying SHA-256 hash of all off-chain state.</div></div>
+  <div class="pr" style="border-color:#ffb300;background:rgba(255,179,0,0.05)"><div class="pn" style="color:#ffb300">12. Bitcoin Block Stamp</div><div class="pd">Commitment anchored in a Bitcoin block. Permanent.</div></div>
+  <div class="pr" style="border-color:#ffb300;background:rgba(255,179,0,0.05)"><div class="pn" style="color:#ffb300">13. Settlement Ripple</div><div class="pd">Gold ring expands from Bitcoin. Irrevocable finality signal.</div></div>
+  <div class="pr" style="border-color:#cc8800;background:rgba(204,136,0,0.05)"><div class="pn" style="color:#cc8800">14. Blockchain Depth</div><div class="pd">Rings receding into infinity. Every prior anchor preserved.</div></div>
+  <div class="pr" style="border-color:#ff3c3c;background:rgba(255,60,60,0.05)"><div class="pn" style="color:#ff3c3c">15. Public Mempool</div><div class="pd">Red chaos background. Traditional blockchains: slow, congested.</div></div>
+  <div class="pr" style="border-color:#ff5500;background:rgba(255,85,0,0.05)"><div class="pn" style="color:#ff5500">16. Fee Spike Auction</div><div class="pd">Orange spikes. Users bid for blockspace — fees explode.</div></div>
+  <div class="pr" style="border-color:#3a8eff;background:rgba(58,142,255,0.05)"><div class="pn" style="color:#3a8eff">17. API Abstraction</div><div class="pd">Blue hologram. One SDK beam — no blockchain code needed.</div></div>
+  <div class="pr" style="border-color:#ffb300;background:rgba(255,179,0,0.05)"><div class="pn" style="color:#ffb300">18. Dispute Resolution</div><div class="pd">Bitcoin-anchored proof resolves any off-chain dispute.</div></div>
 </div>
 
-<!-- LEGEND -->
-<!-- BOTTOM HUD -->
-<div id="bottom-hud">
-  <div id="leg">
-    <div class="li"><div class="ld2" style="background:#00e8ff;box-shadow:0 0 4px #00e8ff"></div>Yield</div>
-    <div class="li"><div class="ld2" style="background:#f0d060;box-shadow:0 0 4px #f0d060"></div>Rewards</div>
-    <div class="li"><div class="ld2" style="background:#9b6dff;box-shadow:0 0 4px #9b6dff"></div>Emissions</div>
-    <div class="li"><div class="ld2" style="background:#ff3d5a;box-shadow:0 0 4px #ff3d5a"></div>Risk</div>
-    <div class="li"><div class="ld2" style="background:#4ade80;box-shadow:0 0 4px #4ade80"></div>Harvest</div>
-  </div>
-  <div id="status">DRAG · SCROLL · TAP MODULE</div>
-</div>
-
-<!-- MOBILE STEP STRIP -->
-<div id="step-strip">
-  <div id="step-strip-num">1/6</div>
-  <div id="step-strip-txt">USER DEPOSITS</div>
-</div>
-
-<div id="flash"></div>
-<div id="tooltip"></div>
-<div class="orn orn-tr"></div>
-<div class="orn orn-br"></div>
+<div id="txb"><div class="tl">Transactions Processed</div><div class="tv" id="txn">0</div></div>
+<div id="bar">Left-click drag block to MOVE &nbsp;|&nbsp; Right-click drag to ORBIT &nbsp;|&nbsp; Scroll to ZOOM</div>
+<div id="tip"></div>
+<div id="drag-hint">Click &amp; drag any glowing block to move it</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ═══════════════════════════════════════════════════════════
-//  CONCRETE DEFI ENGINE — Enhanced Visualization
-//  "How It Runs" — 6-Step Flywheel with Narrative Flow
-//  Responsive: Mobile + Tablet + Desktop
-// ═══════════════════════════════════════════════════════════
+// ─── RENDERER ───────────────────────────────────────────────────────────────
+var renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.3;
+document.body.appendChild(renderer.domElement);
+var cvs = renderer.domElement;
 
-// Forward declare closePanel so step listeners can call it
-function closePanel(){
-  const pl=document.getElementById('panel-left');
-  const ov=document.getElementById('overlay');
-  const mb=document.getElementById('menu-btn');
-  if(pl) pl.classList.remove('open');
-  if(ov) ov.classList.remove('show');
-  if(mb) mb.classList.remove('open');
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x020a18);
+scene.fog = new THREE.FogExp2(0x020a18, 0.012);
+
+var camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 500);
+camera.position.set(0, 10, 34);
+
+// ─── LIGHTS ─────────────────────────────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0x0a1828, 2.5));
+var cL  = new THREE.PointLight(0x00ccff, 6,  40); cL.position.set(0, 8, 0);    scene.add(cL);
+var gL  = new THREE.PointLight(0xffaa00, 5,  35); gL.position.set(22, 6, 0);   scene.add(gL);
+var grL = new THREE.PointLight(0x00ff88, 3,  26); grL.position.set(-22, 4, 0); scene.add(grL);
+var rL  = new THREE.PointLight(0xff4400, 2,  30); rL.position.set(0, -3, -22); scene.add(rL);
+var bL  = new THREE.PointLight(0x4488ff, 2,  22); bL.position.set(-15, 10,-3); scene.add(bL);
+
+// ─── GRID ────────────────────────────────────────────────────────────────────
+var g1 = new THREE.GridHelper(220, 110, 0x001a33, 0x001a33); g1.position.y = -7; scene.add(g1);
+var g2 = new THREE.GridHelper(220, 220, 0x000c1a, 0x000c1a); g2.position.y = -6.97; scene.add(g2);
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function mkBox(w, h, d, col, op, em, emI) {
+  var mat = new THREE.MeshPhysicalMaterial({ color:col, transparent:true, opacity:op, metalness:0.7, roughness:0.15 });
+  if (em) { mat.emissive = new THREE.Color(em); mat.emissiveIntensity = emI || 0.4; }
+  return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+}
+function mkEdge(mesh, col, op) {
+  mesh.add(new THREE.LineSegments(
+    new THREE.EdgesGeometry(mesh.geometry),
+    new THREE.LineBasicMaterial({ color:col||0x00d4ff, transparent:true, opacity:op||0.7 })
+  ));
+}
+function mkPts(n, rx, ry, rz, col, sz) {
+  var pos = new Float32Array(n*3), spd = new Float32Array(n);
+  for (var i=0; i<n; i++) {
+    pos[i*3]=(Math.random()-0.5)*rx; pos[i*3+1]=(Math.random()-0.5)*ry; pos[i*3+2]=(Math.random()-0.5)*rz;
+    spd[i]=0.008+Math.random()*0.02;
+  }
+  var geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  return { pts: new THREE.Points(geo, new THREE.PointsMaterial({ color:col, size:sz||0.08, transparent:true, opacity:0.85 })), spd:spd };
 }
 
-const W = innerWidth, H = innerHeight;
-const isMobile = () => window.innerWidth <= 768;
-const isTablet = () => window.innerWidth > 768 && window.innerWidth <= 1024;
+// ─── DRAGGABLE OBJECTS REGISTRY ──────────────────────────────────────────────
+// Each entry: { mesh, group, label }  — mesh is the raycaster target
+var draggables = [];
 
-// Responsive camera radius
-function baseCamR() {
-  if (isMobile()) return 22;
-  if (isTablet()) return 18;
-  return 16;
+function registerDraggable(mesh, group, label) {
+  // add highlight glow on edges
+  draggables.push({ mesh:mesh, group:group, label:label });
 }
 
-const S = {
-  liq:0.7, risk:0.5, speed:1.0,
-  showProt:true, showDefi:true, showLabels:true,
-  autoRotate:true,
-  camTheta:0.45, camPhi:isMobile()?0.38:0.30, camR:baseCamR(),
-  mouse:{down:false,lx:0,ly:0,dist:0},
-  focusTarget:new THREE.Vector3(),
-  focusLerp:0,
-  protActive:false, protFired:false,
-  currentStep:0,
-  stepTimer:0,
-  STEP_DUR:6.5,
+// ─── 1. PAYMENT OPERATOR ─────────────────────────────────────────────────────
+var opG = new THREE.Group(); opG.position.set(-22, 0, 0); scene.add(opG);
+var opBase = mkBox(3.5, 0.3, 2.5, 0x001811, 0.95); opBase.position.y=-2.5; mkEdge(opBase,0x00ff88,0.85); opG.add(opBase);
+var opBody = mkBox(2.8, 5.8, 2.1, 0x001c14, 0.88, 0x003322, 0.4); mkEdge(opBody,0x00ff88,0.7); opG.add(opBody);
+for (var i=0; i<9; i++) {
+  var sl = mkBox(2.4,0.1,1.8,0x003322,0.9); sl.position.y=-2.3+i*0.56; opG.add(sl);
+  var led = new THREE.Mesh(new THREE.BoxGeometry(0.14,0.07,0.07),
+    new THREE.MeshBasicMaterial({ color:i%3===0?0x00ff88:i%3===1?0x00aaff:0x004433 }));
+  led.position.set(-0.9,-2.3+i*0.56,0.87); opG.add(led);
+}
+registerDraggable(opBody, opG, 'Payment Operator');
+
+// ─── UTEXO ENGINE ─────────────────────────────────────────────────────────────
+var coreG = new THREE.Group(); scene.add(coreG);
+var coreBase = mkBox(12,0.4,7,0x001840,0.95,0x002255,0.5); coreBase.position.y=-1.9; mkEdge(coreBase,0x00aaff,0.9); coreG.add(coreBase);
+
+var layerCfg = [
+  { y:-1.1, col:0x000e30, em:0x002266, ec:0x0055cc },
+  { y: 0.1, col:0x000c28, em:0x001a44, ec:0x0044bb },
+  { y: 1.3, col:0x001032, em:0x002244, ec:0x0066dd },
+  { y: 2.5, col:0x001444, em:0x002a55, ec:0x0099ff },
+];
+var layerMeshes = [];
+layerCfg.forEach(function(cfg) {
+  var l = mkBox(11.5,0.9,6.5,cfg.col,0.82,cfg.em,0.45); l.position.y=cfg.y; mkEdge(l,cfg.ec,0.65); coreG.add(l);
+  layerMeshes.push(l);
+  registerDraggable(l, coreG, 'UTEXO Engine Layer');
+});
+
+var cap = mkBox(11.5,0.14,6.5,0x002255,0.93,0x0044aa,0.65); cap.position.y=3.3; mkEdge(cap,0x00d4ff,0.9); coreG.add(cap);
+
+var crystal = new THREE.Mesh(
+  new THREE.OctahedronGeometry(1.1, 0),
+  new THREE.MeshPhysicalMaterial({ color:0x003377, emissive:new THREE.Color(0x00aaff), emissiveIntensity:1.0, transparent:true, opacity:0.75, metalness:0.5, roughness:0.05 })
+);
+crystal.position.y=0.9; coreG.add(crystal); mkEdge(crystal,0x00ffff,1.0);
+registerDraggable(crystal, coreG, 'Execution Crystal');
+registerDraggable(coreBase, coreG, 'UTEXO Settlement Engine');
+
+// layer flow particles
+var lyrFlow = [];
+[[-0.6,0x00aaff,90],[0.5,0x0066ff,80],[1.7,0x00ccff,95],[2.9,0x00ffcc,70]].forEach(function(a) {
+  var f = mkPts(a[2],11,0.5,6,a[1],0.075); f.pts.position.y=a[0]; scene.add(f.pts); lyrFlow.push(f);
+});
+
+// RGB ribbons
+var rgbG = new THREE.Group(); coreG.add(rgbG);
+var rbCols = [0xff3366,0x00ff88,0x4488ff,0xffaa00,0xaa00ff,0x00ffff];
+var ribbons = [];
+rbCols.forEach(function(c, i) {
+  var m = new THREE.Mesh(new THREE.PlaneGeometry(10,0.13),
+    new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:0.55, side:THREE.DoubleSide }));
+  m.position.set(0,-0.95+i*0.82,0.35); m.rotation.x=0.06; rgbG.add(m);
+  ribbons.push({ mesh:m, off:Math.random()*Math.PI*2, spd:0.22+Math.random()*0.35 });
+});
+
+// ─── FEE RINGS ────────────────────────────────────────────────────────────────
+var feeG = new THREE.Group(); feeG.position.set(0,7.5,0); scene.add(feeG);
+var feeRings = [];
+[2.4,3.6,5.0].forEach(function(r, i) {
+  var ring = new THREE.Mesh(new THREE.TorusGeometry(r,0.07,8,56),
+    new THREE.MeshBasicMaterial({ color:0xf5e800, transparent:true, opacity:0.45-i*0.08 }));
+  ring.rotation.x=Math.PI/2; feeG.add(ring); feeRings.push({ mesh:ring, spd:0.004+i*0.002 });
+  for (var j=0; j<12; j++) {
+    var tk = new THREE.Mesh(new THREE.BoxGeometry(0.04,0.04,0.2),
+      new THREE.MeshBasicMaterial({ color:0xf5e800, transparent:true, opacity:0.6 }));
+    var a=j/12*Math.PI*2; tk.position.set(Math.cos(a)*r,0,Math.sin(a)*r); feeG.add(tk);
+  }
+});
+
+// ─── BITCOIN MONOLITH ────────────────────────────────────────────────────────
+var btcG = new THREE.Group(); btcG.position.set(22,0,0); scene.add(btcG);
+var btcTower = mkBox(4.8,10.5,4.8,0x1a0800,0.93,0x331500,0.4); mkEdge(btcTower,0xffaa00,0.9); btcG.add(btcTower);
+registerDraggable(btcTower, btcG, 'Bitcoin Settlement Monolith');
+
+// stacked individual blocks — each draggable
+var btcBlocks = [];
+for (var i=0; i<7; i++) {
+  var blk = mkBox(4.3,1.2,4.3,0x130800,0.88,0x221100,0.3);
+  blk.position.y=-4.6+i*1.5; mkEdge(blk,0xcc8800,0.6); btcG.add(blk);
+  btcBlocks.push(blk);
+  registerDraggable(blk, btcG, 'Bitcoin Block #' + (i+1));
+  for (var j=0; j<8; j++) {
+    var hsh = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.022,0.01),
+      new THREE.MeshBasicMaterial({ color:0xffaa00, transparent:true, opacity:0.28+Math.random()*0.4 }));
+    hsh.position.set(2.0,(Math.random()-0.5)*1.0,-1.8+j*0.52); blk.add(hsh);
+  }
+}
+var btcDisc = new THREE.Mesh(new THREE.CircleGeometry(1.65,32),
+  new THREE.MeshBasicMaterial({ color:0xffa500, transparent:true, opacity:0.26, side:THREE.DoubleSide }));
+btcDisc.rotation.y=Math.PI/2; btcDisc.position.x=2.42; btcG.add(btcDisc);
+
+// blockchain tunnel
+var tunG = new THREE.Group(); tunG.position.set(29,0,0); scene.add(tunG);
+for (var i=0; i<28; i++) {
+  var tr = new THREE.Mesh(new THREE.TorusGeometry(2.85-i*0.04,0.065,8,24),
+    new THREE.MeshBasicMaterial({ color:0xffaa00, transparent:true, opacity:Math.max(0.02,0.36-i*0.013) }));
+  tr.rotation.y=Math.PI/2; tr.position.x=i*2.6; tunG.add(tr);
+}
+
+// ─── LIGHTNING + ROUTING ─────────────────────────────────────────────────────
+var lnG = new THREE.Group(); scene.add(lnG);
+var lnCols=[0x00aaff,0x00d4ff,0x00ffcc,0x0066ff,0x44aaff,0x00eeff,0x22ccff,0x0088ff];
+for (var i=0; i<9; i++) {
+  var ly=-0.3+i*0.32, lz=(Math.random()-0.5)*1.9;
+  var cv = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(-20,ly,lz),
+    new THREE.Vector3(-13,ly+(Math.random()-0.5)*1.2,lz+(Math.random()-0.5)*0.6),
+    new THREE.Vector3(-8, ly+(Math.random()-0.5)*0.7,lz*0.5),
+    new THREE.Vector3(-6, ly,lz*0.3),
+  ]);
+  lnG.add(new THREE.Mesh(new THREE.TubeGeometry(cv,18,0.033,6,false),
+    new THREE.MeshBasicMaterial({ color:lnCols[i%8], transparent:true, opacity:0.3+Math.random()*0.35 })));
+}
+var routeNodes=[];
+for (var i=0; i<7; i++) {
+  var nd = new THREE.Mesh(new THREE.OctahedronGeometry(0.28),
+    new THREE.MeshBasicMaterial({ color:0x00d4ff, transparent:true, opacity:0.9 }));
+  nd.position.set(-18+i*2.5,Math.sin(i*0.8)*0.65,Math.cos(i*0.75)*1.0); lnG.add(nd);
+  var rng = new THREE.Mesh(new THREE.TorusGeometry(0.4,0.022,6,18),
+    new THREE.MeshBasicMaterial({ color:0x00ffcc, transparent:true, opacity:0.6 }));
+  nd.add(rng); routeNodes.push({ nd:nd, ring:rng });
+  registerDraggable(nd, lnG, 'Routing Node ' + (i+1));
+}
+
+// ─── PAYMENT PACKETS ─────────────────────────────────────────────────────────
+var pkts=[], txNum=0;
+function spawnPkt() {
+  var m = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.32,0.32),
+    new THREE.MeshBasicMaterial({ color:0x00e87a, transparent:true, opacity:0.92 }));
+  var aura = new THREE.Mesh(new THREE.SphereGeometry(0.28,8,8),
+    new THREE.MeshBasicMaterial({ color:0x00e87a, transparent:true, opacity:0.14, wireframe:true }));
+  m.add(aura); scene.add(m);
+  pkts.push({ mesh:m, t:Math.random(), spd:0.003+Math.random()*0.004 });
+}
+for (var i=0; i<14; i++) spawnPkt();
+
+// ─── COMMITMENT BEAMS + RIPPLES ──────────────────────────────────────────────
+var beams=[], ripples=[], beamTmr=0;
+function fireBeam() {
+  var cv = new THREE.CatmullRomCurve3([
+    new THREE.Vector3(6,3,0), new THREE.Vector3(13,6,1.5), new THREE.Vector3(21,2,0)]);
+  var m = new THREE.Mesh(new THREE.TubeGeometry(cv,24,0.07,6,false),
+    new THREE.MeshBasicMaterial({ color:0xffcc00, transparent:true, opacity:0 }));
+  scene.add(m); beams.push({ mesh:m, t:0 });
+}
+function spawnRipple() {
+  for (var k=0; k<3; k++) {
+    var r = new THREE.Mesh(new THREE.TorusGeometry(0.65+k*0.4,0.065,6,26),
+      new THREE.MeshBasicMaterial({ color:0xffaa00, transparent:true, opacity:0.88-k*0.2 }));
+    r.position.set(22,2,0); r.rotation.y=Math.PI/2; scene.add(r);
+    ripples.push({ mesh:r, t:k*-0.12 });
+  }
+}
+
+// ─── PUBLIC CHAIN CHAOS ──────────────────────────────────────────────────────
+var chaosG = new THREE.Group(); chaosG.position.set(0,-2,-24); scene.add(chaosG);
+var chPts = mkPts(320,36,4,7,0xff4400,0.19); chPts.pts.position.y=1; chaosG.add(chPts.pts);
+var spikes=[];
+for (var i=0; i<22; i++) {
+  var sh=0.4+Math.random()*2.8;
+  var sp = new THREE.Mesh(new THREE.ConeGeometry(0.18,sh,4),
+    new THREE.MeshBasicMaterial({ color:0xff5500, transparent:true, opacity:0.76 }));
+  sp.position.set((Math.random()-0.5)*34,sh/2-0.6,Math.random()*6); chaosG.add(sp);
+  spikes.push({ mesh:sp, bh:sh });
+}
+var qBlocks=[];
+for (var i=0; i<16; i++) {
+  var qb = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.3,0.3),
+    new THREE.MeshBasicMaterial({ color:0xff6600, transparent:true, opacity:0.46 }));
+  qb.position.set((Math.random()-0.5)*32,Math.random()*3.5,Math.random()*6); chaosG.add(qb);
+  qBlocks.push({ mesh:qb, spd:(Math.random()-0.5)*0.006 });
+}
+
+// ─── API HOLOGRAM ─────────────────────────────────────────────────────────────
+var apiG = new THREE.Group(); apiG.position.set(-15,9.5,-2); scene.add(apiG);
+var apiPnl = mkBox(5.2,3.0,0.12,0x001a44,0.65,0x002266,0.4); mkEdge(apiPnl,0x3a8eff,0.7); apiG.add(apiPnl);
+registerDraggable(apiPnl, apiG, 'API Abstraction Layer');
+for (var i=0; i<6; i++) {
+  var ln2 = new THREE.Mesh(new THREE.BoxGeometry(4.7,0.012,0.01),
+    new THREE.MeshBasicMaterial({ color:0x224488, transparent:true, opacity:0.38 }));
+  ln2.position.set(0,-1.2+i*0.48,0.07); apiG.add(ln2);
+}
+var sdk = new THREE.Mesh(new THREE.BoxGeometry(0.56,0.56,0.56),
+  new THREE.MeshBasicMaterial({ color:0x3a8eff, transparent:true, opacity:0.9 }));
+sdk.position.set(0,0.25,0.54); mkEdge(sdk,0x88aaff,0.9); apiG.add(sdk);
+var appCols2=[0x00aaff,0x00e87a,0xffb300], appCubes=[];
+appCols2.forEach(function(c, i) {
+  var ac = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.38,0.38),
+    new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:0.88 }));
+  ac.position.set(-1.4+i*1.4,1.05,0.42); mkEdge(ac,c,0.8); apiG.add(ac); appCubes.push(ac);
+});
+var apiCurve = new THREE.CatmullRomCurve3([
+  new THREE.Vector3(-15,9.5,-2),new THREE.Vector3(-9,6.5,-1),new THREE.Vector3(-2.5,3.8,0)]);
+var apiBeam = new THREE.Mesh(new THREE.TubeGeometry(apiCurve,22,0.045,6,false),
+  new THREE.MeshBasicMaterial({ color:0x3a8eff, transparent:true, opacity:0.42 }));
+scene.add(apiBeam);
+var apiPkts2=[];
+for (var i=0; i<7; i++) {
+  var ap = new THREE.Mesh(new THREE.SphereGeometry(0.1,6,6),
+    new THREE.MeshBasicMaterial({ color:0x88ccff, transparent:true, opacity:0.85 }));
+  scene.add(ap); apiPkts2.push({ mesh:ap, t:i/7 });
+}
+
+// ─── STARS ───────────────────────────────────────────────────────────────────
+var sPos=new Float32Array(5000*3);
+for (var i=0; i<5000; i++) { sPos[i*3]=(Math.random()-0.5)*600; sPos[i*3+1]=(Math.random()-0.5)*350; sPos[i*3+2]=-70-Math.random()*280; }
+var sGeo=new THREE.BufferGeometry(); sGeo.setAttribute('position',new THREE.BufferAttribute(sPos,3));
+scene.add(new THREE.Points(sGeo, new THREE.PointsMaterial({ color:0x334466, size:0.38, transparent:true, opacity:0.5 })));
+
+// ─── LABELS ───────────────────────────────────────────────────────────────────
+var labelDefs = [
+  [-22, 5.5,  0,   'c-green',  'PAYMENT ORIGINATION', 'USDT tx created here'],
+  [-22,-4.2,  0,   'c-green',  'PAYMENT OPERATOR',    'Merchant / wallet server'],
+  [-13, 3.8,  0,   'c-cyan',   'LIGHTNING ENTRY',     'Off-chain pipe opened'],
+  [ -9, 2.8,  0,   'c-cyan',   'LIQUIDITY ROUTING',   'Fastest path selected'],
+  [  0, 5.4,  0,   'c-cyan',   'UTEXO ENGINE',        'Off-chain settlement core'],
+  [ -7,-1.0, 4.5,  'c-cyan',   'ROUTING LAYER',       'Path dispatch'],
+  [ -7, 0.1, 4.5,  'c-cyan',   'LIQUIDITY LAYER',     'Pool management'],
+  [ -7, 1.3, 4.5,  'c-cyan',   'EXECUTION LAYER',     'Atomic debit / credit'],
+  [ -7, 2.5, 4.5,  'c-cyan',   'SETTLEMENT COORD.',   'Batch commitment prep'],
+  [  6, 1.5, 4.5,  'c-purple', 'RGB CHANNELS',        'Stablecoin contracts'],
+  [  0,10.2,  0,   'c-yellow', 'FEE RINGS',           'Fixed cost — no auction'],
+  [ 13, 6.0,  0,   'c-gold',   'COMMITMENT BEAM',     'SHA-256 hash to Bitcoin'],
+  [ 22, 7.2,  0,   'c-gold',   'BITCOIN MONOLITH',    'Block stamp = finality'],
+  [ 22,-6.0,  0,   'c-gold',   'SETTLEMENT RIPPLE',   'Irrevocable finality wave'],
+  [ 30, 4.5,  0,   'c-gold',   'BLOCKCHAIN DEPTH',    'Immutable chain history'],
+  [  0,-4.8,-24,   'c-red',    'PUBLIC MEMPOOL',      'Congested and slow'],
+  [  0,-1.5,-24,   'c-red',    'FEE SPIKE AUCTION',   'Gas war — bids explode'],
+  [-15,13.5, -2,   'c-blue',   'API ABSTRACTION',     'SDK connects to UTEXO'],
+];
+var lblEls=[];
+labelDefs.forEach(function(d) {
+  var div=document.createElement('div');
+  div.className='lbl '+d[3];
+  div.innerHTML='<div class="lbl-line"></div><div class="lbl-box">'+d[4]+'</div><div class="lbl-sub">'+d[5]+'</div>';
+  document.body.appendChild(div);
+  lblEls.push({ el:div, world:new THREE.Vector3(d[0],d[1],d[2]) });
+});
+
+// ─── DRAG SYSTEM ─────────────────────────────────────────────────────────────
+/*
+  Left-click on a draggable object → drag it in the XZ plane (horizontal)
+  Right-click / middle-click anywhere → orbit camera
+  No button drag on empty space → orbit camera
+*/
+var rcst    = new THREE.Raycaster();
+var mVec    = new THREE.Vector2();
+var dragPlane = new THREE.Plane();
+var dragPoint = new THREE.Vector3();
+var dragOffset = new THREE.Vector3();
+
+var activeDrag   = null;   // { group, mesh }
+var isOrbiting   = false;
+var isDraggingObj = false;
+var mouseMoved   = false;
+var lastX=0, lastY=0;
+
+// camera orbit state
+var autoOrb=true, orbAngle=0;
+var tTh=0, tPh=0.22, tR=34, cTh=0, cPh=0.22, cR=34;
+
+function getIntersects(ex, ey) {
+  mVec.x=(ex/innerWidth)*2-1; mVec.y=-(ey/innerHeight)*2+1;
+  rcst.setFromCamera(mVec, camera);
+  var meshList = draggables.map(function(d){ return d.mesh; });
+  return rcst.intersectObjects(meshList, false);
+}
+
+function onPointerDown(ex, ey, isRight) {
+  mouseMoved=false; lastX=ex; lastY=ey;
+  if (isRight) { isOrbiting=true; autoOrb=false; cvs.classList.add('orbiting'); return; }
+
+  // check if clicking a draggable
+  var hits = getIntersects(ex, ey);
+  if (hits.length > 0) {
+    var hitMesh = hits[0].object;
+    var found = null;
+    for (var i=0; i<draggables.length; i++) {
+      if (draggables[i].mesh === hitMesh) { found=draggables[i]; break; }
+    }
+    if (found) {
+      isDraggingObj=true; activeDrag=found;
+      autoOrb=false; cvs.classList.add('dragging-obj');
+
+      // drag plane at y=group.position.y + hitMesh.position.y
+      var worldY = found.group.position.y + found.mesh.position.y;
+      dragPlane.set(new THREE.Vector3(0,1,0), -worldY);
+
+      rcst.ray.intersectPlane(dragPlane, dragPoint);
+      // offset = object world pos - hit point on plane
+      var worldPos = new THREE.Vector3();
+      found.mesh.getWorldPosition(worldPos);
+      dragOffset.copy(worldPos).sub(dragPoint);
+
+      // highlight selected
+      highlightMesh(found.mesh, true);
+      return;
+    }
+  }
+
+  // no draggable hit — orbit
+  isOrbiting=true; autoOrb=false; cvs.classList.add('orbiting');
+}
+
+function onPointerMove(ex, ey) {
+  var dx=ex-lastX, dy=ey-lastY;
+  if (Math.abs(dx)>2||Math.abs(dy)>2) mouseMoved=true;
+  if (isDraggingObj && activeDrag) {
+    mVec.x=(ex/innerWidth)*2-1; mVec.y=-(ey/innerHeight)*2+1;
+    rcst.setFromCamera(mVec, camera);
+    if (rcst.ray.intersectPlane(dragPlane, dragPoint)) {
+      var newWorld = dragPoint.clone().add(dragOffset);
+      // convert world pos to group-local
+      var localPos = activeDrag.group.worldToLocal(newWorld.clone());
+      activeDrag.mesh.position.x = localPos.x;
+      activeDrag.mesh.position.z = localPos.z;
+      // keep y fixed (no vertical drag unless shift held)
+    }
+  } else if (isOrbiting) {
+    tTh -= dx*0.006;
+    tPh  = Math.max(-0.55, Math.min(1.15, tPh+dy*0.006));
+  }
+  lastX=ex; lastY=ey;
+}
+
+function onPointerUp(ex, ey) {
+  if (isDraggingObj && activeDrag) {
+    highlightMesh(activeDrag.mesh, false);
+    isDraggingObj=false;
+    // show label if not dragged
+    if (!mouseMoved) showTip(activeDrag);
+    activeDrag=null;
+  }
+  if (isOrbiting) { isOrbiting=false; setTimeout(function(){ autoOrb=true; }, 4000); }
+  cvs.classList.remove('dragging-obj','orbiting');
+}
+
+function highlightMesh(mesh, on) {
+  if (mesh.material) {
+    if (on) {
+      mesh.material.emissiveIntensity = (mesh.material.emissiveIntensity || 0) + 0.6;
+    } else {
+      mesh.material.emissiveIntensity = Math.max(0, (mesh.material.emissiveIntensity || 0.6) - 0.6);
+    }
+  }
+}
+
+// ─── SHOW INSPECT TIP ─────────────────────────────────────────────────────────
+var tipEl = document.getElementById('tip');
+var inspDesc = {
+  'Payment Operator':         'Creates USDT stablecoin transactions. Each green packet flying left-to-right originates here.',
+  'UTEXO Engine Layer':       'One of 4 processing layers: Routing → Liquidity → Execution → Settlement Coordination.',
+  'Execution Crystal':        'Atomic execution core. Validates all state transitions. No partial fills, no race conditions.',
+  'UTEXO Settlement Engine':  '4-layer off-chain processor. Executes RGB asset transfers and batches Bitcoin commitments.',
+  'Bitcoin Settlement Monolith': 'Ultimate source of truth. SHA-256 commitment hashes anchored here permanently.',
+  'API Abstraction Layer':    'One SDK beam connects wallets, exchanges and gateways. No blockchain code needed.',
+  'Routing Node ':            'Evaluates live channel liquidity and routes the payment packet through the fastest path.',
 };
 
-// ── Renderer ──
-const renderer = new THREE.WebGLRenderer({antialias:true, alpha:false});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setSize(W,H);
-renderer.setClearColor(0x020810,1);
-document.body.insertBefore(renderer.domElement, document.getElementById('panel-left'));
-// On desktop, panel is always visible and 3D scene fills full viewport (panel overlays)
-// On mobile, panel slides in over canvas
-
-const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x020810, isMobile()?0.028:0.020);
-
-const camera = new THREE.PerspectiveCamera(48, W/H, 0.01, 200);
-camera.position.set(0,4,16);
-camera.lookAt(0,0,0);
-
-// ── Lights ──
-scene.add(new THREE.AmbientLight(0x04101e, 2.2));
-const goldPt = new THREE.PointLight(0xf0d060, 1.8, 25);
-goldPt.position.set(0,3,0); scene.add(goldPt);
-const cyanPt = new THREE.PointLight(0x00e8ff, 0.9, 20);
-cyanPt.position.set(-6,2,4); scene.add(cyanPt);
-const purplePt = new THREE.PointLight(0x9b6dff, 0.6, 18);
-purplePt.position.set(6,1,-4); scene.add(purplePt);
-const greenPt = new THREE.PointLight(0x4ade80, 0.4, 15);
-greenPt.position.set(0,-2,5); scene.add(greenPt);
-
-// ── Helpers ──
-function gsp(col, sz, op=1) {
-  const c=document.createElement('canvas'); c.width=c.height=64;
-  const x=c.getContext('2d');
-  const r=(col>>16)&255, g=(col>>8)&255, b=col&255;
-  const gr=x.createRadialGradient(32,32,0,32,32,32);
-  gr.addColorStop(0, `rgba(${r},${g},${b},1)`);
-  gr.addColorStop(.4, `rgba(${r},${g},${b},.45)`);
-  gr.addColorStop(1, `rgba(${r},${g},${b},0)`);
-  x.fillStyle=gr; x.fillRect(0,0,64,64);
-  const sp=new THREE.Sprite(new THREE.SpriteMaterial({
-    map:new THREE.CanvasTexture(c), transparent:true,
-    blending:THREE.AdditiveBlending, depthWrite:false, opacity:op,
-  }));
-  sp.scale.set(sz,sz,1); return sp;
+function showTip(drag) {
+  var desc = inspDesc[drag.label] || inspDesc[drag.label.replace(/\d+$/, '')];
+  if (!desc) return;
+  tipEl.innerHTML='<strong>'+drag.label+'</strong>'+(desc||'');
+  tipEl.style.display='block';
+  clearTimeout(tipEl._t); tipEl._t=setTimeout(function(){ tipEl.style.display='none'; }, 5000);
 }
 
-function makeLabel(text, col='#f0d060', sz=11, subtext='') {
-  const c=document.createElement('canvas'); c.width=512; c.height=subtext?96:72;
-  const ctx=c.getContext('2d'); ctx.clearRect(0,0,512,c.height);
-  ctx.font=`700 ${sz*1.9}px 'Syne',sans-serif`;
-  ctx.fillStyle=col; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(text, 256, subtext?30:36);
-  if (subtext) {
-    ctx.font=`400 ${sz*1.3}px 'DM Mono',monospace`;
-    ctx.fillStyle='rgba(200,220,232,0.5)';
-    ctx.fillText(subtext, 256, 68);
-  }
-  const sp=new THREE.Sprite(new THREE.SpriteMaterial({
-    map:new THREE.CanvasTexture(c), transparent:true, depthWrite:false,
-  }));
-  sp.scale.set(3.2, subtext?0.5:0.38, 1); return sp;
-}
-
-function makePill(text, col=0xf0d060) {
-  const c=document.createElement('canvas'); c.width=256; c.height=48;
-  const ctx=c.getContext('2d'); ctx.clearRect(0,0,256,48);
-  const r=(col>>16)&255, g=(col>>8)&255, b=col&255;
-  ctx.fillStyle=`rgba(${r},${g},${b},0.15)`;
-  ctx.strokeStyle=`rgba(${r},${g},${b},0.5)`;
-  ctx.lineWidth=2; ctx.beginPath();
-  ctx.roundRect(4,4,248,40,20); ctx.fill(); ctx.stroke();
-  ctx.font=`500 18px 'DM Mono',monospace`;
-  ctx.fillStyle=`rgba(${r},${g},${b},1)`;
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText(text, 128, 24);
-  const sp=new THREE.Sprite(new THREE.SpriteMaterial({
-    map:new THREE.CanvasTexture(c), transparent:true, depthWrite:false,
-  }));
-  sp.scale.set(2,0.3,1); return sp;
-}
-
-// ── Stars ──
-(function(){
-  const N=2000, pos=new Float32Array(N*3);
-  for (let i=0;i<N;i++){
-    const t=Math.random()*Math.PI*2, p=Math.acos(2*Math.random()-1), r=55+Math.random()*40;
-    pos[i*3]=r*Math.sin(p)*Math.cos(t); pos[i*3+1]=r*Math.sin(p)*Math.sin(t); pos[i*3+2]=r*Math.cos(p);
-  }
-  const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
-  scene.add(new THREE.Points(geo,new THREE.PointsMaterial({color:0xffffff,size:.1,transparent:true,opacity:.22,blending:THREE.AdditiveBlending,depthWrite:false})));
-})();
-
-// ── Grid ──
-(function(){
-  const size=70, d=28, v=[], step=size/d, half=size/2;
-  for(let i=0;i<=d;i++){const q=-half+i*step; v.push(-half,-4.2,q,half,-4.2,q,q,-4.2,-half,q,-4.2,half)}
-  const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.Float32BufferAttribute(v,3));
-  scene.add(new THREE.LineSegments(geo,new THREE.LineBasicMaterial({color:0x091d30,transparent:true,opacity:.4})));
-})();
-
-// ════════════════════════════════════════════
-//  1. CONCRETE CORE SPHERE
-// ════════════════════════════════════════════
-const coreGrp = new THREE.Group();
-scene.add(coreGrp);
-
-// Platform
-const platMesh = new THREE.Mesh(
-  new THREE.CylinderGeometry(3.4,3.8,0.07,64),
-  new THREE.MeshPhysicalMaterial({color:0x04101e,metalness:.98,roughness:.04})
-);
-platMesh.position.y=-2.2; coreGrp.add(platMesh);
-
-// Platform grid rings
-for(let r=0;r<5;r++){
-  const ring=new THREE.Mesh(
-    new THREE.RingGeometry(.4+r*.58,.4+r*.58+.012,64),
-    new THREE.MeshBasicMaterial({color:0xf0d060,transparent:true,opacity:.07+r*.012,side:THREE.DoubleSide,blending:THREE.AdditiveBlending})
-  );
-  ring.rotation.x=-Math.PI/2; ring.position.y=-2.13; coreGrp.add(ring);
-}
-
-// Outer glass shell
-const coreMesh = new THREE.Mesh(
-  new THREE.SphereGeometry(1.88,52,36),
-  new THREE.MeshPhysicalMaterial({
-    color:0xf5e890,transparent:true,opacity:.1,
-    roughness:.04,metalness:.08,transmission:.82,thickness:.6,
-    side:THREE.DoubleSide,depthWrite:false,
-  })
-);
-coreGrp.add(coreMesh);
-
-// Inner metallic frame rings (3 axes)
-const frameAngles=[[0,0,0],[Math.PI/2,0,0],[0,0,Math.PI/2]];
-frameAngles.forEach((rot,i)=>{
-  const fr=new THREE.Mesh(
-    new THREE.TorusGeometry(1.55-.18*i,.014,10,80),
-    new THREE.MeshBasicMaterial({color:0xf0d060,transparent:true,opacity:.28-.05*i,blending:THREE.AdditiveBlending})
-  );
-  fr.rotation.set(...rot); coreGrp.add(fr);
-});
-
-// Equatorial band
-const eqBand=new THREE.Mesh(
-  new THREE.TorusGeometry(1.88,.008,6,80),
-  new THREE.MeshBasicMaterial({color:0xf0d060,transparent:true,opacity:.18,blending:THREE.AdditiveBlending})
-);
-coreGrp.add(eqBand);
-
-// Core glow
-const coreGlow=gsp(0xf0d060,8,.16); coreGrp.add(coreGlow);
-const coreInnerGlow=gsp(0xffffff,3,.08); coreGrp.add(coreInnerGlow);
-
-// Concrete logo on core
-const coreLogoSp=(()=>{
-  const c=document.createElement('canvas'); c.width=c.height=128;
-  const ctx=c.getContext('2d'); ctx.clearRect(0,0,128,128);
-  ctx.font='bold 78px Georgia,serif';
-  ctx.fillStyle='rgba(240,208,96,0.92)'; ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.fillText('C̄',64,66);
-  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),transparent:true,depthWrite:false}));
-  sp.scale.set(1.9,1.9,1); return sp;
-})();
-coreGrp.add(coreLogoSp);
-
-// Outer wireframe
-const coreWire=new THREE.Mesh(
-  new THREE.SphereGeometry(1.9,20,14),
-  new THREE.MeshBasicMaterial({color:0xf0d060,wireframe:true,transparent:true,opacity:.055})
-);
-coreGrp.add(coreWire);
-
-const coreLbl=makeLabel('CONCRETE CORE','#f0d060',11,'Settlement & Routing Layer');
-coreLbl.position.set(0,-2.65,0); coreGrp.add(coreLbl);
-
-// ════════════════════════════════════════════
-//  2. EARN VAULT MODULE (step 1 → 2)
-// ════════════════════════════════════════════
-const vaultGrp=new THREE.Group();
-vaultGrp.position.set(-6,0.4,1.5);
-scene.add(vaultGrp);
-
-// Main vault body
-const vBody=new THREE.Mesh(
-  new THREE.BoxGeometry(1.7,2.4,.95),
-  new THREE.MeshPhysicalMaterial({color:0x001c30,transparent:true,opacity:.88,metalness:.72,roughness:.18})
-);
-vaultGrp.add(vBody);
-vaultGrp.add(new THREE.LineSegments(
-  new THREE.EdgesGeometry(new THREE.BoxGeometry(1.7,2.4,.95)),
-  new THREE.LineBasicMaterial({color:0x00e8ff,transparent:true,opacity:.55})
-));
-
-// Vault level fill
-const vFill=new THREE.Mesh(
-  new THREE.BoxGeometry(1.35,.75,.72),
-  new THREE.MeshBasicMaterial({color:0x00e8ff,transparent:true,opacity:.22,blending:THREE.AdditiveBlending})
-);
-vFill.position.y=-.35; vaultGrp.add(vFill);
-
-// Vault glow
-const vGlow=gsp(0x00e8ff,3.5,.18); vaultGrp.add(vGlow);
-
-const vLbl=makeLabel('EARN VAULT','#00e8ff',10,'Deposit · Auto-Compound');
-vLbl.position.set(0,-1.85,0); vaultGrp.add(vLbl);
-
-// Step 1 pill
-const vStep=makePill('STEP 1 — DEPOSIT',0x00e8ff);
-vStep.position.set(0,1.6,0); vaultGrp.add(vStep);
-
-// ── Strategy plates above vault ──
-const stratPlates=[];
-const stratData=[
-  {name:'Passive Lending',col:0x00e8ff,sub:'Low Risk · 8% APR'},
-  {name:'Ecosystem ETF', col:0xf0d060,sub:'Mid Risk · 14% APR'},
-  {name:'Leveraged',     col:0x9b6dff,sub:'High Risk · 28% APR'},
-];
-stratData.forEach(({name,col,sub},i)=>{
-  const pg=new THREE.Group();
-  pg.position.set(-6, 3.1+i*1.05, 1.5);
-  scene.add(pg);
-  pg.add(new THREE.Mesh(
-    new THREE.BoxGeometry(2.4,.1,1.3),
-    new THREE.MeshPhysicalMaterial({color:col,transparent:true,opacity:.2,metalness:.6})
-  ));
-  pg.add(new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.BoxGeometry(2.4,.1,1.3)),
-    new THREE.LineBasicMaterial({color:col,transparent:true,opacity:.6})
-  ));
-  const sg=gsp(col,2.8,.1); pg.add(sg);
-  const pl=makeLabel(name,`#${col.toString(16).padStart(6,'0')}`,8.5,sub);
-  pl.position.set(0,-.38,0); pg.add(pl);
-  stratPlates.push({group:pg, phase:i*Math.PI*2/3, col});
-});
-
-// ════════════════════════════════════════════
-//  3. BORROW ROUTER (step 2 active when risk > 0)
-// ════════════════════════════════════════════
-const borrowGrp=new THREE.Group();
-borrowGrp.position.set(6,0,1.2);
-scene.add(borrowGrp);
-
-borrowGrp.add(new THREE.Mesh(
-  new THREE.CylinderGeometry(.65,.85,2.3,16),
-  new THREE.MeshPhysicalMaterial({color:0x100820,transparent:true,opacity:.82,metalness:.72,roughness:.22})
-));
-borrowGrp.add(new THREE.LineSegments(
-  new THREE.EdgesGeometry(new THREE.CylinderGeometry(.65,.85,2.3,8)),
-  new THREE.LineBasicMaterial({color:0x9b6dff,transparent:true,opacity:.5})
-));
-const bGlow=gsp(0x9b6dff,3.2,.16); borrowGrp.add(bGlow);
-
-// Dynamic rate bars
-const rateBars=[];
-for(let i=0;i<5;i++){
-  const bar=new THREE.Mesh(
-    new THREE.BoxGeometry(.11,.6,.11),
-    new THREE.MeshBasicMaterial({color:0x9b6dff,transparent:true,opacity:.65,blending:THREE.AdditiveBlending})
-  );
-  bar.position.set(-.82+i*.41, 1.95, 0); borrowGrp.add(bar);
-  rateBars.push({bar, phase:i*1.1, baseH:.6});
-}
-const bLbl=makeLabel('BORROW ROUTER','#9b6dff',10,'Rate Optimizer · Cross-Chain');
-bLbl.position.set(0,-1.65,0); borrowGrp.add(bLbl);
-const bStep=makePill('STEP 3 — DEPLOY',0x9b6dff);
-bStep.position.set(0,1.65,0); borrowGrp.add(bStep);
-
-// ════════════════════════════════════════════
-//  4. LIQUIDATION PROTECTION ENGINE (step 4)
-// ════════════════════════════════════════════
-const protGrp=new THREE.Group();
-protGrp.position.set(0,1,-6);
-scene.add(protGrp);
-
-// Hex shield
-const hexShape=new THREE.Shape();
-for(let i=0;i<6;i++){
-  const a=i/6*Math.PI*2-Math.PI/6;
-  i===0?hexShape.moveTo(Math.cos(a)*1.15,Math.sin(a)*1.15):hexShape.lineTo(Math.cos(a)*1.15,Math.sin(a)*1.15);
-}
-hexShape.closePath();
-const shieldFace=new THREE.Mesh(
-  new THREE.ShapeGeometry(hexShape),
-  new THREE.MeshBasicMaterial({color:0xf0d060,transparent:true,opacity:.1,side:THREE.DoubleSide,blending:THREE.AdditiveBlending})
-);
-shieldFace.rotation.x=-.42; protGrp.add(shieldFace);
-const shieldEdge=new THREE.LineLoop(
-  new THREE.ShapeGeometry(hexShape),
-  new THREE.LineBasicMaterial({color:0xf0d060,transparent:true,opacity:.7})
-);
-shieldEdge.rotation.x=-.42; protGrp.add(shieldEdge);
-
-// Inner hex rings
-for(let i=0;i<2;i++){
-  const hs=new THREE.Shape();
-  const scale=.65-.2*i;
-  for(let j=0;j<6;j++){const a=j/6*Math.PI*2-Math.PI/6; j===0?hs.moveTo(Math.cos(a)*scale,Math.sin(a)*scale):hs.lineTo(Math.cos(a)*scale,Math.sin(a)*scale);}
-  hs.closePath();
-  const he=new THREE.LineLoop(new THREE.ShapeGeometry(hs),new THREE.LineBasicMaterial({color:0xf0d060,transparent:true,opacity:.3-i*.1}));
-  he.rotation.x=-.42; protGrp.add(he);
-}
-
-const protGlow=gsp(0xf0d060,4.5,.14); protGrp.add(protGlow);
-const protLbl=makeLabel('PROTECTION ENGINE','#f0d060',10,'Liq. Guard · 3 Tranches');
-protLbl.position.set(0,-1.75,0); protGrp.add(protLbl);
-const protStep=makePill('STEP 4 — PROTECT',0xff3d5a);
-protStep.position.set(0,1.65,0); protGrp.add(protStep);
-
-// Shield waves
-const shieldWaves=[];
-for(let i=0;i<3;i++){
-  const r=new THREE.Mesh(
-    new THREE.RingGeometry(.1,.16,40),
-    new THREE.MeshBasicMaterial({color:0xf0d060,transparent:true,opacity:0,side:THREE.DoubleSide,blending:THREE.AdditiveBlending})
-  );
-  r.rotation.x=-.42; protGrp.add(r);
-  shieldWaves.push({ring:r, phase:i*.45, sc:.1});
-}
-const dangerRing=new THREE.Mesh(
-  new THREE.RingGeometry(.1,.17,40),
-  new THREE.MeshBasicMaterial({color:0xff3d5a,transparent:true,opacity:0,side:THREE.DoubleSide,blending:THREE.AdditiveBlending})
-);
-dangerRing.rotation.x=-.42; protGrp.add(dangerRing);
-
-// ════════════════════════════════════════════
-//  5. CROSS-CHAIN NODES (step 3 — deploy)
-// ════════════════════════════════════════════
-const chainNodes=[];
-const chainDefs=[
-  {name:'ETH',  sub:'Mainnet',  col:0x00e8ff, pos:[-8.5,1.8,-2]},
-  {name:'ARB',  sub:'Arbitrum', col:0x8b9dff, pos:[ 8.5,2.2,-2]},
-  {name:'OP',   sub:'Optimism', col:0xff6b9d, pos:[ 7.5,-1.5,4.5]},
-  {name:'BASE', sub:'Base',     col:0x6366f1, pos:[-7.5,-1,0]},
-  {name:'USDC', sub:'Liquidity',col:0x4ade80, pos:[ 0,4,-9]},
-];
-chainDefs.forEach(({name,sub,col,pos})=>{
-  const g=new THREE.Group(); g.position.set(...pos); scene.add(g);
-  g.add(new THREE.Mesh(
-    new THREE.IcosahedronGeometry(.6,1),
-    new THREE.MeshPhysicalMaterial({color:col,transparent:true,opacity:.2,metalness:.5,roughness:.35,wireframe:false})
-  ));
-  g.add(new THREE.LineSegments(
-    new THREE.EdgesGeometry(new THREE.IcosahedronGeometry(.62,1)),
-    new THREE.LineBasicMaterial({color:col,transparent:true,opacity:.45})
-  ));
-  const gl=gsp(col,2.2,.28); g.add(gl);
-  const nl=makeLabel(name,`#${col.toString(16).padStart(6,'0')}`,9,sub);
-  nl.position.set(0,-1.05,0); g.add(nl);
-  chainNodes.push({group:g, col, glow:gl, phase:Math.random()*Math.PI*2});
-});
-
-// ════════════════════════════════════════════
-//  6. YIELD HARVEST NODE (step 5)
-// ════════════════════════════════════════════
-const harvestGrp=new THREE.Group();
-harvestGrp.position.set(0,4.5,3);
-scene.add(harvestGrp);
-
-harvestGrp.add(new THREE.Mesh(
-  new THREE.OctahedronGeometry(.9,0),
-  new THREE.MeshPhysicalMaterial({color:0x0d2010,transparent:true,opacity:.8,metalness:.6,roughness:.3})
-));
-harvestGrp.add(new THREE.LineSegments(
-  new THREE.EdgesGeometry(new THREE.OctahedronGeometry(.92,0)),
-  new THREE.LineBasicMaterial({color:0x4ade80,transparent:true,opacity:.7})
-));
-const hGlow=gsp(0x4ade80,3,.2); harvestGrp.add(hGlow);
-const hLbl=makeLabel('YIELD HARVEST','#4ade80',10,'Auto-Compound · Emissions');
-hLbl.position.set(0,-1.45,0); harvestGrp.add(hLbl);
-const hStep=makePill('STEP 5 — HARVEST',0x4ade80);
-hStep.position.set(0,1.25,0); harvestGrp.add(hStep);
-
-// ════════════════════════════════════════════
-//  7. FLYWHEEL PATHS + PARTICLES
-// ════════════════════════════════════════════
-// All paths in world space
-const pathDefs=[
-  // Wallet user → Vault (deposit, cyan)
-  {pts:[new THREE.Vector3(-9,1,3.5),new THREE.Vector3(-7.5,.8,2.5),new THREE.Vector3(-6,.4,1.5)], col:0x00e8ff, step:0},
-  // Vault → Strat plates (allocation, gold)
-  {pts:[new THREE.Vector3(-6,.4,1.5),new THREE.Vector3(-6.5,2,1.5),new THREE.Vector3(-6,3.1,1.5)], col:0xf0d060, step:1},
-  // Vault → Core (routing, cyan)
-  {pts:[new THREE.Vector3(-6,.4,1.5),new THREE.Vector3(-3.5,.7,1),new THREE.Vector3(0,0,0)], col:0x00e8ff, step:1},
-  // Core → chains (deploy, various)
-  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(-4.5,1.2,-1.2),new THREE.Vector3(-8.5,1.8,-2)], col:0x00e8ff, step:2},
-  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(4.5,1.4,-1),new THREE.Vector3(8.5,2.2,-2)], col:0x8b9dff, step:2},
-  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(4,0,2.5),new THREE.Vector3(7.5,-1.5,4.5)], col:0xff6b9d, step:2},
-  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(-4,-0.2,0),new THREE.Vector3(-7.5,-1,0)], col:0x6366f1, step:2},
-  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(0,2.5,-5),new THREE.Vector3(0,4,-9)], col:0x4ade80, step:2},
-  // Core → Protection (risk guard, gold)
-  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(0,.5,-3.5),new THREE.Vector3(0,1,-6)], col:0xf0d060, step:3},
-  // Borrow ↔ Core (purple)
-  {pts:[new THREE.Vector3(6,0,1.2),new THREE.Vector3(3,.3,.7),new THREE.Vector3(0,0,0)], col:0x9b6dff, step:2},
-  // Chains → Harvest (yield return, green)
-  {pts:[new THREE.Vector3(-8.5,1.8,-2),new THREE.Vector3(-4,3.5,1),new THREE.Vector3(0,4.5,3)], col:0x4ade80, step:4},
-  {pts:[new THREE.Vector3(8.5,2.2,-2),new THREE.Vector3(4,3.8,1),new THREE.Vector3(0,4.5,3)], col:0x4ade80, step:4},
-  // Harvest → Core → Vault (flywheel return, gold+green)
-  {pts:[new THREE.Vector3(0,4.5,3),new THREE.Vector3(0,2.5,1.5),new THREE.Vector3(0,0,0)], col:0xf0d060, step:4},
-  {pts:[new THREE.Vector3(0,0,0),new THREE.Vector3(-3,.5,1),new THREE.Vector3(-6,.4,1.5)], col:0xf0d060, step:5},
-];
-
-// Build tube meshes
-const pathCurves=[];
-pathDefs.forEach(({pts,col,step})=>{
-  const curve=new THREE.CatmullRomCurve3(pts);
-  const geo=new THREE.TubeGeometry(curve,28,.014,5,false);
-  const mat=new THREE.MeshBasicMaterial({color:col,transparent:true,opacity:.3,blending:THREE.AdditiveBlending});
-  const mesh=new THREE.Mesh(geo,mat); scene.add(mesh);
-  pathCurves.push({curve,col,mat,step});
-});
-
-// Flow particles
-const FLOW_N=isMobile()?220:500;
-const fPos=new Float32Array(FLOW_N*3), fProg=new Float32Array(FLOW_N);
-const fLane=new Uint8Array(FLOW_N), fCol=new Float32Array(FLOW_N*3);
-for(let i=0;i<FLOW_N;i++){
-  fProg[i]=Math.random(); fLane[i]=i%pathCurves.length;
-  const c=pathCurves[fLane[i]].col;
-  fCol[i*3]=(c>>16&255)/255; fCol[i*3+1]=(c>>8&255)/255; fCol[i*3+2]=(c&255)/255;
-}
-const fGeo=new THREE.BufferGeometry();
-fGeo.setAttribute('position',new THREE.BufferAttribute(fPos,3));
-fGeo.setAttribute('color',new THREE.BufferAttribute(fCol,3));
-const fPts=new THREE.Points(fGeo,new THREE.PointsMaterial({
-  size:.075, vertexColors:true, transparent:true, opacity:.9,
-  blending:THREE.AdditiveBlending, depthWrite:false,
-}));
-scene.add(fPts);
-
-// ════════════════════════════════════════════
-//  8. BORROWER NODES (risk layer)
-// ════════════════════════════════════════════
-const borrowerNodes=[];
-for(let i=0;i<5;i++){
-  const a=(i/5)*Math.PI*2;
-  const bg=new THREE.Group();
-  bg.position.set(Math.cos(a)*4.2,-1.2+Math.sin(a*.8)*.4,Math.sin(a)*4.2);
-  scene.add(bg);
-  const bm=new THREE.Mesh(new THREE.SphereGeometry(.2,10,7),new THREE.MeshBasicMaterial({color:0x0048a8,blending:THREE.AdditiveBlending}));
-  bg.add(bm);
-  const bgl=gsp(0x00e8ff,.9,.4); bg.add(bgl);
-  borrowerNodes.push({group:bg,mesh:bm,glow:bgl,phase:Math.random()*Math.PI*2,alert:false});
-}
-
-// ════════════════════════════════════════════
-//  9. MANUAL DEFI (comparison)
-// ════════════════════════════════════════════
-const defiGrp=new THREE.Group();
-defiGrp.position.set(-11.5,-1.5,2);
-scene.add(defiGrp);
-
-[[-1.6,.3,0],[0,.7,-.5],[1.6,.2,.3],[-.9,-.6,.2],[.9,-.3,-.4],[0,-1.1,0]].forEach((p)=>{
-  const g=new THREE.Group(); g.position.set(...p);
-  const b=new THREE.Mesh(new THREE.BoxGeometry(.5+Math.random()*.3,.38,.38),
-    new THREE.MeshPhysicalMaterial({color:0x1a0808,metalness:.6,roughness:.4}));
-  g.add(b);
-  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(b.geometry),
-    new THREE.LineBasicMaterial({color:0xff3d5a,transparent:true,opacity:.3})));
-  defiGrp.add(g);
-});
-
-// Broken bridges
-[[new THREE.Vector3(-1.6,.3,0),new THREE.Vector3(-.4,.4,.1),new THREE.Vector3(.5,.6,-.2)],
- [new THREE.Vector3(.9,-.3,-.4),new THREE.Vector3(1.3,.1,.2)]].forEach(pts=>{
-  defiGrp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),
-    new THREE.LineBasicMaterial({color:0xff3d5a,transparent:true,opacity:.22})));
-});
-
-const dGlow=gsp(0xff3d5a,4.5,.1); defiGrp.add(dGlow);
-const dLbl=makeLabel('MANUAL DEFI','#ff3d5a',10,'High Friction · Slow Settlement');
-dLbl.position.set(0,-2.1,0); defiGrp.add(dLbl);
-const dSubLbl=makeLabel('Gas: ●●●●● — Slippage: High','#ff7730',7.5);
-dSubLbl.position.set(0,-2.7,0); defiGrp.add(dSubLbl);
-
-// Gas flames
-const FLAME_N=70, flPos=new Float32Array(FLAME_N*3), flProg=new Float32Array(FLAME_N);
-for(let i=0;i<FLAME_N;i++) flProg[i]=Math.random();
-const flGeo=new THREE.BufferGeometry(); flGeo.setAttribute('position',new THREE.BufferAttribute(flPos,3));
-const flPts=new THREE.Points(flGeo,new THREE.PointsMaterial({size:.07,color:0xff7730,transparent:true,opacity:.75,blending:THREE.AdditiveBlending,depthWrite:false}));
-defiGrp.add(flPts);
-
-// Slow red particles
-const manCurve=new THREE.CatmullRomCurve3([new THREE.Vector3(-1.6,.3,0),new THREE.Vector3(-.4,.4,.1),new THREE.Vector3(.5,.6,-.2)]);
-const MANP_N=20, mpPos=new Float32Array(MANP_N*3), mpProg=new Float32Array(MANP_N);
-for(let i=0;i<MANP_N;i++) mpProg[i]=(i/MANP_N);
-const mpGeo=new THREE.BufferGeometry(); mpGeo.setAttribute('position',new THREE.BufferAttribute(mpPos,3));
-const mpPts=new THREE.Points(mpGeo,new THREE.PointsMaterial({size:.06,color:0xff3d5a,transparent:true,opacity:.8,blending:THREE.AdditiveBlending,depthWrite:false}));
-defiGrp.add(mpPts);
-
-// ════════════════════════════════════════════
-//  MINI CHART (right panel)
-// ════════════════════════════════════════════
-const chartCanvas=document.getElementById('mini-chart');
-const chartCtx=chartCanvas.getContext('2d');
-const chartData=Array.from({length:30},(_,i)=>2400+Math.sin(i*.5)*60+Math.random()*40);
-
-function drawMiniChart(){
-  chartCanvas.width=chartCanvas.offsetWidth||180;
-  chartCanvas.height=36;
-  const {width:cw,height:ch}=chartCanvas;
-  chartCtx.clearRect(0,0,cw,ch);
-  const mn=Math.min(...chartData), mx=Math.max(...chartData);
-  const pts=chartData.map((v,i)=>({x:(i/(chartData.length-1))*cw,y:ch-((v-mn)/(mx-mn))*(ch-4)-2}));
-  const gr=chartCtx.createLinearGradient(0,0,0,ch);
-  gr.addColorStop(0,'rgba(240,208,96,.35)'); gr.addColorStop(1,'rgba(240,208,96,0)');
-  chartCtx.beginPath(); chartCtx.moveTo(pts[0].x,ch);
-  pts.forEach(p=>chartCtx.lineTo(p.x,p.y));
-  chartCtx.lineTo(pts[pts.length-1].x,ch); chartCtx.closePath();
-  chartCtx.fillStyle=gr; chartCtx.fill();
-  chartCtx.beginPath(); chartCtx.moveTo(pts[0].x,pts[0].y);
-  pts.forEach(p=>chartCtx.lineTo(p.x,p.y));
-  chartCtx.strokeStyle='rgba(240,208,96,.8)'; chartCtx.lineWidth=1.5; chartCtx.stroke();
-}
-drawMiniChart();
-
-// ════════════════════════════════════════════
-//  EVENT LOG
-// ════════════════════════════════════════════
-const eventMessages=[
-  {col:'#00e8ff',text:'<span>+$89k</span> deposited — ETH vault'},
-  {col:'#f0d060',text:'Strategy rebalance → <span>+0.3% APR</span>'},
-  {col:'#4ade80',text:'Yield harvest: <span>$41,228</span> compounded'},
-  {col:'#9b6dff',text:'CONCRETE emissions <span>distributed to vault</span>'},
-  {col:'#ff3d5a',text:'<span>🛡 Protection</span> — position saved'},
-  {col:'#8b9dff',text:'ARB bridge: <span>$2.1M</span> deployed'},
-  {col:'#f0d060',text:'APR updated → <span>14.6%</span>'},
-  {col:'#4ade80',text:'Flywheel cycle <span>#1,847</span> complete'},
-];
-let evIdx=0;
-function addEvent(){
-  const log=document.getElementById('event-log');
-  const ev=eventMessages[evIdx%eventMessages.length]; evIdx++;
-  const div=document.createElement('div'); div.className='ev-row';
-  div.innerHTML=`<div class="ev-dot" style="background:${ev.col}"></div><div class="ev-text">${ev.text}</div>`;
-  log.insertBefore(div,log.firstChild);
-  if(log.children.length>8) log.removeChild(log.lastChild);
-  // Update chart
-  chartData.push(chartData[chartData.length-1]+(Math.random()-.3)*25);
-  if(chartData.length>30) chartData.shift();
-  drawMiniChart();
-}
-setInterval(addEvent,3200);
-
-// TVL shimmer
-let tvlBase=2412847331;
-setInterval(()=>{
-  tvlBase+=Math.floor((Math.random()-.25)*120000);
-  document.getElementById('tvl-live').textContent='$'+tvlBase.toLocaleString();
-  const apr=(14.2+Math.sin(Date.now()*.0003)*2.1).toFixed(1);
-  document.getElementById('apr-live').textContent=`APR: ${apr}%`;
-},2500);
-
-// ════════════════════════════════════════════
-//  STEP TRACKER (6-step flywheel)
-// ════════════════════════════════════════════
-const stepDefs=[
-  {focus:vaultGrp.position.clone(), phase:'DEPOSIT FLOW',       pct:18},
-  {focus:new THREE.Vector3(-6,3,1.5), phase:'STRATEGY ROUTING', pct:35},
-  {focus:new THREE.Vector3(0,0,0),    phase:'CROSS-CHAIN DEPLOY',pct:55},
-  {focus:protGrp.position.clone(),    phase:'PROTECTION ACTIVE', pct:72},
-  {focus:harvestGrp.position.clone(), phase:'YIELD HARVEST',     pct:88},
-  {focus:new THREE.Vector3(0,0,0),    phase:'FLYWHEEL RESTART ↺',pct:100},
-];
-
-const stepNames=['USER DEPOSITS','STRATEGY ROUTING','CROSS-CHAIN DEPLOY','PROTECTION GUARD','YIELD HARVEST','FLYWHEEL ↺'];
-
-function setStep(idx){
-  S.currentStep=idx;
-  document.querySelectorAll('.step').forEach((el,i)=>{
-    el.classList.remove('active','done');
-    if(i===idx) el.classList.add('active');
-    else if(i<idx) el.classList.add('done');
-  });
-  const sd=stepDefs[idx];
-  document.getElementById('ph-v').textContent=sd.phase;
-  document.getElementById('ph-f').style.width=sd.pct+'%';
-  // Highlight relevant path tubes
-  pathCurves.forEach(({mat,step})=>{
-    mat.opacity=step===idx ? .55 : .22;
-  });
-  // Update mobile step strip
-  const sn=document.getElementById('step-strip-num');
-  const st=document.getElementById('step-strip-txt');
-  if(sn) sn.textContent=(idx+1)+'/6';
-  if(st) st.textContent=stepNames[idx]||'';
-  // Auto-scroll step into view on mobile
-  if(isMobile()){
-    const activeStep=document.querySelector('.step.active');
-    if(activeStep) activeStep.scrollIntoView({behavior:'smooth',block:'nearest'});
-  }
-}
-setStep(0);
-
-// Step click / tap
-document.querySelectorAll('.step').forEach((el,i)=>{
-  el.addEventListener('click',()=>{
-    S.stepTimer=0; setStep(i);
-    const sf=stepDefs[i].focus;
-    S.focusTarget.copy(sf);
-    S.camR=Math.max(isMobile()?12:9, S.camR*.85);
-    // Close panel on mobile after selecting step
-    if(isMobile()) closePanel();
-  });
-});
-
-// ════════════════════════════════════════════
-//  CONTROLS
-// ════════════════════════════════════════════
-const cvs=renderer.domElement;
-const ray=new THREE.Raycaster();
-const mNDC=new THREE.Vector2();
-
-// ── Pointer (mouse + touch unified) ──
-const mods=[
-  {g:coreGrp,n:'Concrete Core',d:'Protocol settlement & routing hub'},
-  {g:vaultGrp,n:'Earn Vault',d:'Auto-compounding multi-strategy vault'},
-  {g:borrowGrp,n:'Borrow Router',d:'Cross-chain rate optimization engine'},
-  {g:protGrp,n:'Protection Engine',d:'3-tranche liquidation prevention'},
-  {g:harvestGrp,n:'Yield Harvest',d:'Auto-compound + emissions distributor'},
-];
-
-function pointerDown(x,y){S.mouse.down=true;S.mouse.lx=x;S.mouse.ly=y;S.autoRotate=false;}
-function pointerMove(x,y){
-  if(!S.mouse.down)return;
-  S.camTheta-=(x-S.mouse.lx)*.007;
-  S.camPhi=Math.max(.06,Math.min(1.38,S.camPhi+(y-S.mouse.ly)*.007));
-  S.mouse.lx=x;S.mouse.ly=y;
-}
-function pointerUp(){S.mouse.down=false;}
-
-function checkHover(x,y){
-  mNDC.x=(x/innerWidth)*2-1;mNDC.y=-(y/innerHeight)*2+1;
-  ray.setFromCamera(mNDC,camera);
-  const hits=ray.intersectObjects(scene.children,true);
-  const tip=document.getElementById('tooltip');
-  if(hits.length){
-    let found; const obj=hits[0].object;
-    mods.forEach(m=>{let o=obj;while(o){if(o===m.g){found=m;break;}o=o.parent;}});
-    if(found){
-      tip.textContent=found.n+' · '+found.d;
-      const tx=Math.min(x+14,innerWidth-220),ty=Math.max(y-12,8);
-      tip.style.left=tx+'px';tip.style.top=ty+'px';tip.style.opacity='1';return;
-    }
-  }
-  tip.style.opacity='0';
-}
-
-function checkTap(x,y){
-  mNDC.x=(x/innerWidth)*2-1;mNDC.y=-(y/innerHeight)*2+1;
-  ray.setFromCamera(mNDC,camera);
-  const hits=ray.intersectObjects(scene.children,true);
-  if(hits.length){
-    [[coreGrp,0],[vaultGrp,1],[borrowGrp,2],[protGrp,3],[harvestGrp,4]].forEach(([g,si])=>{
-      let o=hits[0].object;while(o){if(o===g){S.focusTarget.lerp(g.position,.5);S.camR=isMobile()?13:9;setStep(si);S.stepTimer=0;break;}o=o.parent;}
-    });
+// for 'Bitcoin Block #N' partial match
+for (var i=0; i<draggables.length; i++) {
+  if (draggables[i].label.indexOf('Bitcoin Block')===0) {
+    inspDesc[draggables[i].label] = 'Individual Bitcoin block. Drag to inspect. Each block seals a batch of off-chain UTEXO commitments permanently.';
   }
 }
 
-// Mouse events
-let _tapX=0,_tapY=0;
-cvs.addEventListener('mousedown',e=>{pointerDown(e.clientX,e.clientY);_tapX=e.clientX;_tapY=e.clientY;});
-cvs.addEventListener('mousemove',e=>{pointerMove(e.clientX,e.clientY);if(!isMobile())checkHover(e.clientX,e.clientY);});
-cvs.addEventListener('mouseup',e=>{if(Math.hypot(e.clientX-_tapX,e.clientY-_tapY)<8)checkTap(e.clientX,e.clientY);pointerUp();});
-cvs.addEventListener('wheel',e=>{S.camR=Math.max(isMobile()?8:5,Math.min(30,S.camR+e.deltaY*.013));},{passive:true});
-cvs.addEventListener('dblclick',()=>{S.autoRotate=!S.autoRotate;S.focusTarget.set(0,0,0);});
-
-// Touch events (with pinch zoom)
-let _t0x=0,_t0y=0,_pinchDist=0;
-cvs.addEventListener('touchstart',e=>{
-  if(e.touches.length===1){
-    pointerDown(e.touches[0].clientX,e.touches[0].clientY);
-    _t0x=e.touches[0].clientX;_t0y=e.touches[0].clientY;
-  } else if(e.touches.length===2){
-    _pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-    S.mouse.down=false;
-  }
-},{passive:true});
-cvs.addEventListener('touchmove',e=>{
-  if(e.touches.length===1){pointerMove(e.touches[0].clientX,e.touches[0].clientY);}
-  else if(e.touches.length===2){
-    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-    S.camR=Math.max(8,Math.min(30,S.camR+(_pinchDist-d)*.04));_pinchDist=d;
-  }
-},{passive:true});
-cvs.addEventListener('touchend',e=>{
-  const cx=e.changedTouches[0].clientX,cy=e.changedTouches[0].clientY;
-  if(Math.hypot(cx-_t0x,cy-_t0y)<14)checkTap(cx,cy);
-  pointerUp();
-},{passive:true});
-
-document.getElementById('tog-prot').addEventListener('change',e=>S.showProt=e.target.checked);
-document.getElementById('tog-defi').addEventListener('change',e=>{S.showDefi=e.target.checked;defiGrp.visible=e.target.checked;});
-document.getElementById('tog-labels').addEventListener('change',e=>{
-  S.showLabels=e.target.checked;
-  [vStep,bStep,protStep,hStep].forEach(s=>s.visible=e.target.checked);
+// ─── MOUSE EVENTS ─────────────────────────────────────────────────────────────
+cvs.addEventListener('mousedown', function(e) {
+  e.preventDefault();
+  onPointerDown(e.clientX, e.clientY, e.button===2||e.button===1);
 });
-document.getElementById('slid-liq').addEventListener('input',e=>{
-  S.liq=e.target.value/100;document.getElementById('liq-val').textContent=e.target.value+'%';
-  fPts.material.opacity=.5+S.liq*.55;
-});
-document.getElementById('slid-risk').addEventListener('input',e=>{
-  S.risk=e.target.value/100;const r=e.target.value;
-  document.getElementById('risk-val').textContent=r<34?'Low':r<67?'Medium':'High';
-});
+cvs.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+window.addEventListener('mouseup',   function(e){ onPointerUp(e.clientX, e.clientY); });
+window.addEventListener('mousemove', function(e){ onPointerMove(e.clientX, e.clientY); });
+cvs.addEventListener('wheel', function(e){ tR=Math.max(8,Math.min(75,tR+e.deltaY*0.07)); });
 
-function flashScreen(col='rgba(240,208,96,0.18)'){
-  const f=document.getElementById('flash');
-  f.style.background=`radial-gradient(ellipse at center,${col} 0%,transparent 65%)`;
-  f.style.opacity='1'; setTimeout(()=>{f.style.opacity='.25';},180); setTimeout(()=>{f.style.opacity='0';},600);
-}
-
-// ════════════════════════════════════════════
-//  ANIMATION LOOP
-// ════════════════════════════════════════════
-const clock=new THREE.Clock();
-let t=0, protCycle=0;
-const PROT_INTERVAL=16;
-let protFired=false;
-
-function animate(){
-  requestAnimationFrame(animate);
-  const dt=clock.getDelta(); t+=dt;
-
-  // ── Auto-step through flywheel ──
-  S.stepTimer+=dt;
-  if(S.stepTimer>S.STEP_DUR){S.stepTimer=0;setStep((S.currentStep+1)%6);}
-  // Pulse step focus
-  if(S.autoRotate){
-    const sf=stepDefs[S.currentStep].focus;
-    S.focusTarget.lerp(sf,.025);
+// ─── TOUCH EVENTS ─────────────────────────────────────────────────────────────
+var touchId=null;
+cvs.addEventListener('touchstart', function(e) {
+  e.preventDefault();
+  if (e.touches.length===1) {
+    touchId=e.touches[0].identifier;
+    onPointerDown(e.touches[0].clientX, e.touches[0].clientY, false);
+  } else if (e.touches.length===2) {
+    // two-finger = orbit
+    if (isDraggingObj) { onPointerUp(lastX,lastY); }
+    isOrbiting=true; autoOrb=false;
   }
+}, { passive:false });
 
-  // ── Camera ──
-  if(S.autoRotate) S.camTheta+=dt*.055;
-  const cx=S.camR*Math.sin(S.camTheta)*Math.cos(S.camPhi);
-  const cy=S.camR*Math.sin(S.camPhi)+1.2;
-  const cz=S.camR*Math.cos(S.camTheta)*Math.cos(S.camPhi);
-  camera.position.lerp(new THREE.Vector3(cx,cy,cz),.055);
-  camera.lookAt(S.focusTarget);
-  S.focusTarget.lerp(new THREE.Vector3(0,.5,0),.006);
-
-  // ── Core ──
-  const cp=.85+.15*Math.sin(t*1.8);
-  coreMesh.material.opacity=.08+.05*cp;
-  coreGlow.material.opacity=.12+.07*cp;
-  coreInnerGlow.material.opacity=.04+.04*cp;
-  goldPt.intensity=1.4+.7*cp;
-  coreGrp.position.y=Math.sin(t*.65)*.09;
-  coreWire.rotation.y+=dt*.09; coreWire.rotation.x+=dt*.055;
-  frameAngles.forEach((_,i)=>{ if(coreGrp.children[4+i]) coreGrp.children[4+i].rotation.z+=dt*(.08+i*.04);});
-
-  // ── Vault ──
-  vaultGrp.position.y=.4+Math.sin(t*.8+1)*.13;
-  vFill.scale.y=.65+.35*Math.abs(Math.sin(t*1.2));
-  vFill.material.opacity=.16+.1*Math.sin(t*2.3);
-
-  // ── Strategy plates ──
-  stratPlates.forEach(({group,phase,col},i)=>{
-    group.rotation.y+=dt*.35;
-    group.position.y=3.1+i*1.05+Math.sin(t*.7+phase)*.08;
-    const act=S.currentStep===1||S.currentStep===5;
-    group.children[0].material.opacity=act?.35:.18;
-    const gspEl=group.children[2];
-    if(gspEl) gspEl.material.opacity=act?.22:.08;
-  });
-
-  // ── Rate bars ──
-  rateBars.forEach(({bar,phase,baseH},i)=>{
-    const h=baseH*(.6+.8*(.5+.5*Math.sin(t*1.9+phase)));
-    bar.scale.y=h/baseH;
-    bar.position.y=1.9+baseH*bar.scale.y/2;
-    bar.material.opacity=.4+.3*Math.sin(t*2.4+phase);
-  });
-  borrowGrp.position.y=Math.sin(t*.55+.4)*.11;
-
-  // ── Protection ──
-  protGrp.rotation.y+=dt*.12;
-  shieldFace.material.opacity=.07+.055*Math.sin(t*1.6);
-
-  // ── Harvest ──
-  harvestGrp.rotation.y+=dt*.6;
-  harvestGrp.position.y=4.5+Math.sin(t*1.1+2)*.14;
-  hGlow.material.opacity=.14+.1*Math.sin(t*2.2);
-
-  // ── Chain nodes ──
-  chainNodes.forEach(({group,glow,phase})=>{
-    group.rotation.y+=dt*.18;
-    glow.material.opacity=.18+.13*Math.sin(t*2+phase);
-  });
-
-  // ── Flow particles ──
-  const fArr=fGeo.attributes.position.array;
-  const speedMul=.12+S.liq*.15;
-  for(let i=0;i<FLOW_N;i++){
-    fProg[i]+=dt*speedMul*(0.9+Math.random()*.2);
-    if(fProg[i]>1) fProg[i]=0;
-    const lane=fLane[i];
-    const pt=pathCurves[lane].curve.getPoint(Math.max(0,Math.min(1,fProg[i])));
-    fArr[i*3]=pt.x; fArr[i*3+1]=pt.y; fArr[i*3+2]=pt.z;
-  }
-  fGeo.attributes.position.needsUpdate=true;
-
-  // ── Borrower nodes ──
-  borrowerNodes.forEach(({group,mesh,glow,phase,alert})=>{
-    group.rotation.y+=dt*.45;
-    const p=.5+.5*Math.sin(t*3+phase);
-    glow.material.opacity=.22+.18*p;
-    mesh.material.color.set(alert?0xff3d5a:0x0048a8);
-    glow.material.color.set(alert?0xff3d5a:0x00e8ff);
-  });
-
-  // ── Protection event cycle ──
-  if(S.showProt){
-    protCycle+=dt;
-    const pp=(protCycle%PROT_INTERVAL)/PROT_INTERVAL;
-    if(pp>.48&&pp<.82){
-      const ds=(pp-.48)/.34;
-      dangerRing.material.opacity=.45*(1-ds);
-      dangerRing.scale.setScalar(.4+ds*7);
-      if(!protFired&&pp>.54){
-        protFired=true;
-        const bn=borrowerNodes[Math.floor(Math.random()*5)];
-        bn.alert=true;
-        setTimeout(()=>bn.alert=false,5500);
-        flashScreen('rgba(255,61,90,0.1)');
-        addEvent(); // force event
+cvs.addEventListener('touchmove', function(e) {
+  e.preventDefault();
+  if (e.touches.length===1) {
+    for (var i=0; i<e.touches.length; i++) {
+      if (e.touches[i].identifier===touchId) {
+        onPointerMove(e.touches[i].clientX, e.touches[i].clientY); break;
       }
-    } else { dangerRing.material.opacity=0; }
-    if(pp>.68&&pp<.94){
-      const sp=(pp-.68)/.26;
-      shieldWaves.forEach(({ring},i)=>{
-        ring.scale.setScalar(.3+sp*4+i*.9);
-        ring.material.opacity=Math.max(0,.65-sp*.75-i*.18);
-      });
-      protGlow.material.opacity=.28+.2*Math.sin(t*9);
-      goldPt.intensity=2.8+Math.sin(t*11)*.9;
-    } else {
-      shieldWaves.forEach(({ring})=>ring.material.opacity*=.9);
-      goldPt.intensity+=(1.4-goldPt.intensity)*.05;
     }
-    if(pp<.04){ protFired=false; }
-    if(pp>.67&&pp<.71) flashScreen('rgba(240,208,96,0.14)');
+  } else if (e.touches.length===2 && isOrbiting) {
+    var cx=(e.touches[0].clientX+e.touches[1].clientX)/2;
+    var cy=(e.touches[0].clientY+e.touches[1].clientY)/2;
+    onPointerMove(cx,cy);
   }
+}, { passive:false });
 
-  // ── Manual DeFi ──
-  const fpa=flGeo.attributes.position.array;
-  for(let i=0;i<FLAME_N;i++){
-    flProg[i]+=dt*(.35+Math.random()*.12); if(flProg[i]>1) flProg[i]=0;
-    fpa[i*3]=(Math.random()-.5)*2.8; fpa[i*3+1]=-1.2+flProg[i]*2.2; fpa[i*3+2]=(Math.random()-.5)*1.4;
-    flPts.material.opacity=.5+.25*Math.sin(t*4.5);
-  }
-  flGeo.attributes.position.needsUpdate=true;
-  const mpa=mpGeo.attributes.position.array;
-  for(let i=0;i<MANP_N;i++){
-    mpProg[i]+=dt*.038; if(mpProg[i]>1) mpProg[i]=0;
-    const pt=manCurve.getPoint(mpProg[i]);
-    mpa[i*3]=pt.x; mpa[i*3+1]=pt.y; mpa[i*3+2]=pt.z;
-  }
-  mpGeo.attributes.position.needsUpdate=true;
-  defiGrp.children.filter(c=>c.isLine).forEach((l,i)=>{
-    l.material.opacity=Math.random()<.025?.7:(.18+.08*Math.sin(t*2.5+i));
+cvs.addEventListener('touchend', function(e) {
+  e.preventDefault();
+  onPointerUp(lastX,lastY);
+}, { passive:false });
+
+// ─── CONTROLS ─────────────────────────────────────────────────────────────────
+var paySpd=0.70, cngLvl=0.40;
+function setupTog(id, fn) {
+  var el=document.getElementById(id);
+  el.addEventListener('click', function(){ el.classList.toggle('on'); fn(el.classList.contains('on')); });
+}
+setupTog('t1', function(v){ lnG.visible=v; });
+setupTog('t2', function(v){ btcG.visible=v; tunG.visible=v; });
+setupTog('t3', function(v){ chaosG.visible=v; });
+setupTog('t4', function(v){ rgbG.visible=v; });
+setupTog('t5', function(v){ apiG.visible=v; apiBeam.visible=v; });
+document.getElementById('r1').addEventListener('input',function(e){ paySpd=e.target.value/100; document.getElementById('v1').textContent=e.target.value+'%'; });
+document.getElementById('r2').addEventListener('input',function(e){ cngLvl=e.target.value/100; document.getElementById('v2').textContent=e.target.value+'%'; });
+
+// ─── LABEL PROJECTION ─────────────────────────────────────────────────────────
+var pv3=new THREE.Vector3();
+function projLabel(wp) {
+  pv3.copy(wp).project(camera);
+  return { x:(pv3.x*0.5+0.5)*innerWidth, y:(-pv3.y*0.5+0.5)*innerHeight, behind:pv3.z>1 };
+}
+
+// ─── ANIMATION ────────────────────────────────────────────────────────────────
+var clock=new THREE.Clock();
+function animate() {
+  requestAnimationFrame(animate);
+  var t=clock.getElapsedTime();
+
+  // camera
+  if (autoOrb && !isDraggingObj) { orbAngle+=0.0005; tTh=orbAngle; tPh=0.22+Math.sin(t*0.07)*0.06; }
+  cTh+=(tTh-cTh)*0.04; cPh+=(tPh-cPh)*0.04; cR+=(tR-cR)*0.06;
+  camera.position.x=cR*Math.sin(cTh)*Math.cos(cPh);
+  camera.position.y=cR*Math.sin(cPh)+2;
+  camera.position.z=cR*Math.cos(cTh)*Math.cos(cPh);
+  camera.lookAt(0,1,0);
+
+  // engine core
+  cL.intensity=5+Math.sin(t*2.2)*1.2;
+  crystal.rotation.y+=0.013; crystal.rotation.x+=0.007;
+  crystal.material.emissiveIntensity=0.75+0.4*Math.sin(t*2.1);
+  coreG.position.y=Math.sin(t*0.38)*0.18;
+  feeG.position.y=7.5+Math.sin(t*0.38)*0.18;
+
+  // layer particles
+  lyrFlow.forEach(function(f) {
+    var pa=f.pts.geometry.attributes.position.array;
+    for (var i=0; i<pa.length/3; i++) { pa[i*3]+=f.spd[i]*paySpd*2.8; if(pa[i*3]>5.5)pa[i*3]=-5.5; }
+    f.pts.geometry.attributes.position.needsUpdate=true;
   });
 
-  // Light colors shift with step
-  const stepColors=[0x00e8ff,0xf0d060,0x00e8ff,0xf0d060,0x4ade80,0xf0d060];
-  const sc=stepColors[S.currentStep];
-  cyanPt.color.set(sc===0x00e8ff?0x00e8ff:sc);
-  cyanPt.intensity=0.8+.3*Math.sin(t*3);
+  // routing nodes
+  routeNodes.forEach(function(rn, i) {
+    rn.nd.scale.setScalar(1+0.35*Math.sin(t*2.6+i));
+    rn.nd.rotation.y+=0.025; rn.ring.rotation.z+=0.04;
+    rn.ring.material.opacity=0.38+0.42*Math.sin(t*3+i);
+    rn.nd.material.color.setHex(Math.sin(t*3+i)>0.5?0x00ffcc:0x00d4ff);
+  });
 
-  renderer.render(scene,camera);
+  // payment packets
+  pkts.forEach(function(pk) {
+    pk.t+=pk.spd*paySpd*2.8;
+    if (pk.t>1) { pk.t=0; txNum++; document.getElementById('txn').textContent=txNum.toLocaleString(); }
+    pk.mesh.position.x=-21+pk.t*16;
+    pk.mesh.rotation.y+=0.07*paySpd; pk.mesh.rotation.z+=0.05;
+    var nx=pk.mesh.position.x;
+    var flash=routeNodes.some(function(r){ return Math.abs(r.nd.position.x-nx)<0.7; });
+    pk.mesh.material.color.setHex(flash?0xffffff:0x00e87a);
+    pk.mesh.material.opacity=flash?1.0:0.88;
+  });
+
+  // RGB ribbons
+  ribbons.forEach(function(rb) {
+    rb.mesh.position.x=Math.sin(t*rb.spd+rb.off)*0.4;
+    rb.mesh.material.opacity=0.35*(0.65+0.35*Math.sin(t*rb.spd*2+rb.off));
+  });
+
+  // fee rings
+  feeRings.forEach(function(fr, i) {
+    fr.mesh.rotation.z+=fr.spd+Math.sin(t*0.4)*0.001;
+    fr.mesh.material.opacity=0.28+0.2*Math.sin(t*1.8+i);
+  });
+
+  // commitment beams
+  beamTmr+=0.016;
+  if (beamTmr>3.5) { beamTmr=0; fireBeam(); }
+  for (var i=beams.length-1; i>=0; i--) {
+    beams[i].t+=0.012;
+    beams[i].mesh.material.opacity=Math.sin(beams[i].t*Math.PI)*0.9;
+    if (beams[i].t>1) { scene.remove(beams[i].mesh); beams.splice(i,1); spawnRipple(); }
+  }
+  for (var i=ripples.length-1; i>=0; i--) {
+    ripples[i].t+=0.036;
+    var rt=ripples[i].t;
+    ripples[i].mesh.scale.setScalar(1+Math.max(0,rt)*3.8);
+    ripples[i].mesh.material.opacity=Math.max(0,0.85-rt*0.9);
+    if (rt>1.1) { scene.remove(ripples[i].mesh); ripples.splice(i,1); }
+  }
+  gL.intensity=4+Math.sin(t*0.85)*0.9;
+
+  // tunnel rings
+  tunG.children.forEach(function(r,i) {
+    r.material.opacity=Math.max(0.02,(0.36-i*0.013)*(0.72+0.28*Math.sin(t*1.4+i*0.24)));
+  });
+
+  // bitcoin blocks gentle float
+  btcBlocks.forEach(function(blk, i) {
+    // only float if not being dragged
+    var isDraggedBlock = activeDrag && activeDrag.mesh===blk;
+    if (!isDraggedBlock) {
+      blk.position.y = (-4.6+i*1.5) + Math.sin(t*0.6+i*0.8)*0.08;
+    }
+  });
+
+  // chaos
+  spikes.forEach(function(sp, i) {
+    var h=sp.bh*(0.45+cngLvl*1.3*Math.abs(Math.sin(t*2.1+i*0.58)));
+    sp.mesh.scale.y=h/sp.bh; sp.mesh.material.color.setHex(h>sp.bh*1.2?0xff1100:0xff5500);
+    sp.mesh.material.opacity=0.52+0.3*Math.sin(t*2.5+i);
+  });
+  var cp=chPts.pts.geometry.attributes.position.array;
+  for (var i=0; i<320; i++) cp[i*3+1]+=0.006*Math.sin(t*2+i*0.4)*cngLvl;
+  chPts.pts.geometry.attributes.position.needsUpdate=true;
+  qBlocks.forEach(function(qb) {
+    qb.mesh.position.x+=qb.spd/(cngLvl+0.15);
+    if(qb.mesh.position.x>17)qb.mesh.position.x=-17;
+    qb.mesh.material.opacity=0.3+cngLvl*0.42;
+  });
+  rL.intensity=1.4+cngLvl*2.2*Math.abs(Math.sin(t));
+
+  // API
+  apiPkts2.forEach(function(ap) {
+    ap.t=(ap.t+0.004*paySpd)%1;
+    var pt=apiCurve.getPoint(ap.t); ap.mesh.position.copy(pt);
+    ap.mesh.material.opacity=0.65+0.35*Math.sin(ap.t*Math.PI);
+  });
+  sdk.rotation.x+=0.018; sdk.rotation.y+=0.022;
+  appCubes.forEach(function(a,i){ a.rotation.y+=0.02+i*0.005; });
+  apiG.position.y=9.5+Math.sin(t*0.47)*0.3;
+
+  // label projection
+  lblEls.forEach(function(lb) {
+    var p=projLabel(lb.world);
+    var inLP=p.x<innerWidth*0.22&&p.y>20&&p.y<innerHeight-20;
+    var inRP=p.x>innerWidth*0.80&&p.y>20&&p.y<innerHeight-20;
+    if (p.behind||p.x<-60||p.x>innerWidth+60||p.y<-60||p.y>innerHeight+60) {
+      lb.el.style.display='none';
+    } else {
+      lb.el.style.display='block';
+      lb.el.style.left=p.x+'px'; lb.el.style.top=p.y+'px';
+      lb.el.style.opacity=(inLP||inRP)?'0.12':'1';
+    }
+  });
+
+  renderer.render(scene, camera);
 }
+
+window.addEventListener('resize', function() {
+  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
 
 animate();
-
-window.addEventListener('resize',()=>{
-  const W=innerWidth,H=innerHeight;
-  renderer.setSize(W,H); camera.aspect=W/H; camera.updateProjectionMatrix();
-  drawMiniChart();
-  // Adjust camera range on orientation change
-  if(!S.mouse.down) S.camR=Math.max(S.camR, baseCamR());
-});
-
-// ── Mobile menu button ──
-const menuBtn=document.getElementById('menu-btn');
-const panelLeft=document.getElementById('panel-left');
-const overlay=document.getElementById('overlay');
-
-function openPanel(){
-  panelLeft.classList.add('open');
-  overlay.classList.add('show');
-  menuBtn.classList.add('open');
-}
-function closePanel(){
-  panelLeft.classList.remove('open');
-  overlay.classList.remove('show');
-  menuBtn.classList.remove('open');
-}
-if(menuBtn){
-  menuBtn.addEventListener('click',e=>{
-    e.stopPropagation();
-    panelLeft.classList.contains('open')?closePanel():openPanel();
-  });
-}
-if(overlay) overlay.addEventListener('click',closePanel);
-
-// Auto-open panel on desktop
-if(!isMobile()&&!isTablet()) panelLeft.classList.add('open');
 </script>
 </body>
 </html>
