@@ -60,10 +60,55 @@ canvas.orbiting { cursor:grabbing; }
   border-radius:12px; padding:16px;
   backdrop-filter:blur(18px); z-index:100; color:#d8f0ff;
 }
-#lp { left:18px; width:240px; }
-#rp { right:18px; width:220px; max-height:calc(100vh-80px); overflow-y:auto; }
-#rp::-webkit-scrollbar { width:3px; }
-#rp::-webkit-scrollbar-thumb { background:rgba(0,180,255,0.3); }
+#lp { left:18px; width:242px; max-height:calc(100vh - 36px); overflow-y:auto; }
+#lp::-webkit-scrollbar { width:3px; }
+#lp::-webkit-scrollbar-thumb { background:rgba(0,180,255,0.35); border-radius:2px; }
+#rp { right:18px; width:234px; max-height:calc(100vh - 36px); overflow-y:scroll; scroll-behavior:smooth; }
+#rp::-webkit-scrollbar { width:7px; }
+#rp::-webkit-scrollbar-track { background:rgba(0,15,40,0.7); border-radius:4px; }
+#rp::-webkit-scrollbar-thumb { background:rgba(0,180,255,0.6); border-radius:4px; border:1px solid rgba(0,220,255,0.3); }
+#rp::-webkit-scrollbar-thumb:hover { background:rgba(0,220,255,0.9); }
+#scroll-hint { position:sticky; bottom:0; text-align:center; padding:5px 0 3px;
+  background:linear-gradient(transparent,rgba(2,8,22,0.98) 60%);
+  font-size:9px; color:rgba(0,200,255,0.6); letter-spacing:0.1em; pointer-events:none;
+  animation:bhint 1.4s ease-in-out infinite; }
+@keyframes bhint { 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
+/* process card hover */
+.pr { transition:background 0.2s, border-color 0.2s; cursor:pointer; }
+.pr:hover { filter:brightness(1.35); background:rgba(0,200,255,0.08) !important; }
+/* minimap / progress */
+#rp-prog { position:absolute; top:0; right:0; width:3px; height:100%; background:rgba(0,200,255,0.08); border-radius:0 12px 12px 0; pointer-events:none; }
+#rp-prog-bar { width:100%; background:rgba(0,200,255,0.5); border-radius:0 12px 12px 0; transition:height 0.1s; }
+/* speed meter */
+#speed-meter { margin-top:8px; padding:8px; background:rgba(0,180,255,0.05); border:1px solid rgba(0,180,255,0.15); border-radius:7px; }
+.meter-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; }
+.meter-lbl { font-size:7px; color:rgba(0,200,255,0.55); text-transform:uppercase; letter-spacing:0.1em; }
+.meter-bar-wrap { width:110px; height:5px; background:rgba(0,80,150,0.35); border-radius:3px; overflow:hidden; }
+.meter-bar { height:100%; border-radius:3px; transition:width 0.4s; }
+/* focus button */
+.focus-btn { display:inline-block; margin-top:4px; padding:2px 7px; font-size:7px; letter-spacing:0.1em;
+  text-transform:uppercase; color:#000; border-radius:3px; cursor:pointer; border:none;
+  font-family:'Courier New',monospace; font-weight:900; transition:opacity 0.2s; }
+.focus-btn:hover { opacity:0.8; }
+/* reset button */
+#btn-reset { display:block; width:100%; margin-top:10px; padding:6px; font-size:8px;
+  letter-spacing:0.12em; text-transform:uppercase; background:rgba(0,180,255,0.12);
+  border:1px solid rgba(0,180,255,0.3); border-radius:6px; color:#00d4ff;
+  cursor:pointer; font-family:'Courier New',monospace; transition:background 0.2s; }
+#btn-reset:hover { background:rgba(0,180,255,0.25); }
+/* screenshot button */
+#btn-ss { display:block; width:100%; margin-top:6px; padding:6px; font-size:8px;
+  letter-spacing:0.12em; text-transform:uppercase; background:rgba(0,255,136,0.08);
+  border:1px solid rgba(0,255,136,0.25); border-radius:6px; color:#00ff88;
+  cursor:pointer; font-family:'Courier New',monospace; transition:background 0.2s; }
+#btn-ss:hover { background:rgba(0,255,136,0.2); }
+/* camera presets */
+.cam-row { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
+.cam-btn { flex:1; min-width:48px; padding:4px 2px; font-size:7px; letter-spacing:0.08em;
+  text-transform:uppercase; background:rgba(0,180,255,0.1); border:1px solid rgba(0,180,255,0.25);
+  border-radius:5px; color:#00d4ff; cursor:pointer; font-family:'Courier New',monospace;
+  text-align:center; transition:background 0.2s; white-space:nowrap; }
+.cam-btn:hover { background:rgba(0,180,255,0.28); }
 
 h1 { font-size:14px; font-weight:900; letter-spacing:0.2em; color:#00d4ff;
      text-shadow:0 0 16px #00d4ff88; margin-bottom:2px; }
@@ -174,6 +219,40 @@ h2 { font-size:9px; font-weight:900; letter-spacing:0.16em; color:#00d4ff;
       <input type="range" id="r2" min="10" max="100" value="40">
     </div>
   </div>
+
+  <!-- LIVE METERS -->
+  <div id="speed-meter">
+    <div class="meter-row">
+      <span class="meter-lbl">TX Throughput</span>
+      <div class="meter-bar-wrap"><div class="meter-bar" id="m-tx" style="width:70%;background:#00e87a"></div></div>
+    </div>
+    <div class="meter-row">
+      <span class="meter-lbl">Engine Load</span>
+      <div class="meter-bar-wrap"><div class="meter-bar" id="m-eng" style="width:45%;background:#00d4ff"></div></div>
+    </div>
+    <div class="meter-row">
+      <span class="meter-lbl">BTC Finality</span>
+      <div class="meter-bar-wrap"><div class="meter-bar" id="m-btc" style="width:30%;background:#ffb300"></div></div>
+    </div>
+    <div class="meter-row">
+      <span class="meter-lbl">Chain Chaos</span>
+      <div class="meter-bar-wrap"><div class="meter-bar" id="m-ch" style="width:40%;background:#ff3c3c"></div></div>
+    </div>
+  </div>
+
+  <!-- CAMERA PRESETS -->
+  <div class="lt" style="margin-top:12px">Camera Views</div>
+  <div class="cam-row">
+    <div class="cam-btn" onclick="setCamPreset('front')">Front</div>
+    <div class="cam-btn" onclick="setCamPreset('top')">Top</div>
+    <div class="cam-btn" onclick="setCamPreset('side')">Side</div>
+    <div class="cam-btn" onclick="setCamPreset('btc')">Bitcoin</div>
+    <div class="cam-btn" onclick="setCamPreset('engine')">Engine</div>
+  </div>
+
+  <!-- ACTION BUTTONS -->
+  <button id="btn-reset" onclick="resetAllBlocks()">&#8635; Reset Block Positions</button>
+  <button id="btn-ss" onclick="takeScreenshot()">&#128247; Screenshot</button>
 </div>
 
 <!-- RIGHT PANEL -->
@@ -197,6 +276,7 @@ h2 { font-size:9px; font-weight:900; letter-spacing:0.16em; color:#00d4ff;
   <div class="pr" style="border-color:#ff5500;background:rgba(255,85,0,0.05)"><div class="pn" style="color:#ff5500">16. Fee Spike Auction</div><div class="pd">Orange spikes. Users bid for blockspace — fees explode.</div></div>
   <div class="pr" style="border-color:#3a8eff;background:rgba(58,142,255,0.05)"><div class="pn" style="color:#3a8eff">17. API Abstraction</div><div class="pd">Blue hologram. One SDK beam — no blockchain code needed.</div></div>
   <div class="pr" style="border-color:#ffb300;background:rgba(255,179,0,0.05)"><div class="pn" style="color:#ffb300">18. Dispute Resolution</div><div class="pd">Bitcoin-anchored proof resolves any off-chain dispute.</div></div>
+  <div id="scroll-hint">&#9660; scroll for more &#9660;</div>
 </div>
 
 <div id="txb"><div class="tl">Transactions Processed</div><div class="tv" id="txn">0</div></div>
@@ -685,7 +765,100 @@ cvs.addEventListener('touchend', function(e) {
   onPointerUp(lastX,lastY);
 }, { passive:false });
 
-// ─── CONTROLS ─────────────────────────────────────────────────────────────────
+// ─── PROCESS CARD CLICK → CAMERA FOCUS ──────────────────────────────────────
+var focusTargets = {
+  1:  { tTh: -0.4, tPh: 0.15, tR: 22, cx:-22 },
+  2:  { tTh: -0.3, tPh: 0.15, tR: 18, cx:-14 },
+  3:  { tTh: -0.2, tPh: 0.18, tR: 16, cx:-10 },
+  4:  { tTh:  0.0, tPh: 0.22, tR: 18, cx:  0 },
+  5:  { tTh:  0.0, tPh: 0.12, tR: 14, cx:  0 },
+  6:  { tTh:  0.0, tPh: 0.18, tR: 14, cx:  0 },
+  7:  { tTh:  0.0, tPh: 0.24, tR: 14, cx:  0 },
+  8:  { tTh:  0.0, tPh: 0.30, tR: 14, cx:  0 },
+  9:  { tTh:  0.0, tPh: 0.20, tR: 12, cx:  0 },
+  10: { tTh:  0.0, tPh: 0.50, tR: 14, cx:  0 },
+  11: { tTh:  0.5, tPh: 0.30, tR: 18, cx: 12 },
+  12: { tTh:  0.6, tPh: 0.22, tR: 18, cx: 22 },
+  13: { tTh:  0.6, tPh: 0.10, tR: 16, cx: 22 },
+  14: { tTh:  0.8, tPh: 0.18, tR: 22, cx: 30 },
+  15: { tTh:  0.0, tPh:-0.10, tR: 30, cx:  0 },
+  16: { tTh:  0.0, tPh:-0.10, tR: 30, cx:  0 },
+  17: { tTh: -0.5, tPh: 0.40, tR: 20, cx:-14 },
+  18: { tTh:  0.6, tPh: 0.22, tR: 20, cx: 22 },
+};
+
+document.querySelectorAll('.pr').forEach(function(card, idx) {
+  card.addEventListener('click', function() {
+    var num = idx + 1;
+    var ft = focusTargets[num];
+    if (ft) { tTh = ft.tTh; tPh = ft.tPh; tR = ft.tR; autoOrb = false; setTimeout(function(){ autoOrb=true; }, 6000); }
+  });
+});
+
+// ─── CAMERA PRESETS ──────────────────────────────────────────────────────────
+function setCamPreset(name) {
+  autoOrb = false;
+  if (name === 'front')  { tTh = 0;    tPh = 0.22; tR = 34; }
+  if (name === 'top')    { tTh = 0;    tPh = 1.1;  tR = 38; }
+  if (name === 'side')   { tTh = 1.57; tPh = 0.22; tR = 34; }
+  if (name === 'btc')    { tTh = 0.5;  tPh = 0.25; tR = 20; }
+  if (name === 'engine') { tTh = 0;    tPh = 0.35; tR = 16; }
+  setTimeout(function(){ autoOrb = true; }, 8000);
+}
+
+// ─── RESET BLOCK POSITIONS ───────────────────────────────────────────────────
+var origPositions = {};
+draggables.forEach(function(d, i) {
+  origPositions[i] = { x: d.mesh.position.x, y: d.mesh.position.y, z: d.mesh.position.z };
+});
+function resetAllBlocks() {
+  draggables.forEach(function(d, i) {
+    var op = origPositions[i];
+    if (op) { d.mesh.position.set(op.x, op.y, op.z); }
+  });
+  var tip2 = document.getElementById('tip');
+  tip2.innerHTML = '<strong>Reset Complete</strong>All blocks returned to original positions.';
+  tip2.style.display = 'block';
+  clearTimeout(tip2._t); tip2._t = setTimeout(function(){ tip2.style.display='none'; }, 2500);
+}
+
+// ─── SCREENSHOT ──────────────────────────────────────────────────────────────
+function takeScreenshot() {
+  renderer.render(scene, camera);
+  var dataURL = renderer.domElement.toDataURL('image/png');
+  var a = document.createElement('a');
+  a.href = dataURL;
+  a.download = 'UTEXO-visualization.png';
+  a.click();
+}
+
+// ─── LIVE METERS UPDATE ──────────────────────────────────────────────────────
+function updateMeters(t) {
+  var txW  = Math.round(paySpd * 100);
+  var engW = Math.round(40 + Math.sin(t * 1.2) * 25 + paySpd * 25);
+  var btcW = Math.round(20 + Math.abs(Math.sin(t * 0.3)) * 60);
+  var chW  = Math.round(cngLvl * 90 + Math.abs(Math.sin(t * 1.5)) * 10);
+  engW = Math.min(100, Math.max(5, engW));
+  btcW = Math.min(100, Math.max(5, btcW));
+  chW  = Math.min(100, Math.max(5, chW));
+  document.getElementById('m-tx').style.width  = txW  + '%';
+  document.getElementById('m-eng').style.width = engW + '%';
+  document.getElementById('m-btc').style.width = btcW + '%';
+  document.getElementById('m-ch').style.width  = chW  + '%';
+  // color chaos bar red when high
+  document.getElementById('m-ch').style.background = chW > 65 ? '#ff1100' : '#ff3c3c';
+}
+
+// ─── PREVENT CANVAS WHEEL FROM STEALING PANEL SCROLL ────────────────────────
+var rpEl = document.getElementById('rp');
+var lpEl = document.getElementById('lp');
+rpEl.addEventListener('wheel', function(e) { e.stopPropagation(); }, { passive:true });
+lpEl.addEventListener('wheel', function(e) { e.stopPropagation(); }, { passive:true });
+rpEl.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+lpEl.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+// prevent canvas from capturing pointer when over panels
+rpEl.addEventListener('mousemove', function(e) { e.stopPropagation(); });
+lpEl.addEventListener('mousemove', function(e) { e.stopPropagation(); });
 var paySpd=0.70, cngLvl=0.40;
 function setupTog(id, fn) {
   var el=document.getElementById(id);
@@ -782,6 +955,7 @@ function animate() {
     if (rt>1.1) { scene.remove(ripples[i].mesh); ripples.splice(i,1); }
   }
   gL.intensity=4+Math.sin(t*0.85)*0.9;
+  updateMeters(t);
 
   // tunnel rings
   tunG.children.forEach(function(r,i) {
