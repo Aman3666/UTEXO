@@ -3,1132 +3,1102 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>UTEXO - Stablecoin Execution Layer</title>
+<title>GenLayer · 3D Quiz Arena</title>
 <style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { background:#020a18; overflow:hidden; font-family:'Courier New',monospace; }
-canvas { display:block; cursor:grab; }
-canvas.dragging-obj { cursor:move; }
-canvas.orbiting { cursor:grabbing; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* floating label */
-.lbl {
-  position:absolute; pointer-events:none;
-  transform:translate(-50%,-50%);
-  text-align:center; z-index:10;
-}
-.lbl-line { width:1px; height:14px; margin:0 auto; }
-.lbl-box {
-  display:inline-block; padding:3px 10px 2px;
-  border-radius:4px 4px 0 0;
-  font-size:10px; font-weight:900;
-  letter-spacing:0.12em; text-transform:uppercase; white-space:nowrap;
-}
-.lbl-sub {
-  display:inline-block; padding:2px 8px 3px;
-  border-radius:0 0 4px 4px;
-  font-size:7.5px; letter-spacing:0.06em; white-space:nowrap;
+:root {
+  --teal: #00C2A8;
+  --teal2: #007A6E;
+  --teal-glow: rgba(0,194,168,0.2);
+  --navy: #040D18;
+  --card: rgba(6,18,34,0.88);
+  --border: rgba(0,194,168,0.2);
+  --text: #C8EAF4;
+  --muted: #3D6878;
+  --correct: #00FF9D;
+  --wrong: #FF3D5A;
+  --amber: #FFB020;
 }
 
-.c-cyan   .lbl-box { background:#00c8ff; color:#000; }
-.c-cyan   .lbl-sub { background:rgba(0,80,140,0.93); color:#7df4ff; }
-.c-cyan   .lbl-line { background:#00c8ff; }
-.c-green  .lbl-box { background:#00e87a; color:#000; }
-.c-green  .lbl-sub { background:rgba(0,55,28,0.93); color:#7affc0; }
-.c-green  .lbl-line { background:#00e87a; }
-.c-gold   .lbl-box { background:#ffb300; color:#000; }
-.c-gold   .lbl-sub { background:rgba(52,30,0,0.93); color:#ffd980; }
-.c-gold   .lbl-line { background:#ffb300; }
-.c-red    .lbl-box { background:#ff3c3c; color:#fff; }
-.c-red    .lbl-sub { background:rgba(52,0,0,0.93); color:#ff9090; }
-.c-red    .lbl-line { background:#ff3c3c; }
-.c-purple .lbl-box { background:#b44fff; color:#fff; }
-.c-purple .lbl-sub { background:rgba(36,0,62,0.93); color:#d8a0ff; }
-.c-purple .lbl-line { background:#b44fff; }
-.c-yellow .lbl-box { background:#f5e800; color:#000; }
-.c-yellow .lbl-sub { background:rgba(40,36,0,0.93); color:#fff9a0; }
-.c-yellow .lbl-line { background:#f5e800; }
-.c-blue   .lbl-box { background:#3a8eff; color:#fff; }
-.c-blue   .lbl-sub { background:rgba(8,24,62,0.93); color:#9ac4ff; }
-.c-blue   .lbl-line { background:#3a8eff; }
-
-/* panels */
-#lp, #rp {
-  position:fixed; top:18px;
-  background:rgba(2,8,22,0.92);
-  border:1px solid rgba(0,200,255,0.2);
-  border-radius:12px; padding:16px;
-  backdrop-filter:blur(18px); z-index:100; color:#d8f0ff;
+html, body {
+  width: 100%; height: 100%;
+  overflow: hidden;
+  background: var(--navy);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif;
 }
-#lp { left:18px; width:242px; max-height:calc(100vh - 36px); overflow-y:auto; }
-#lp::-webkit-scrollbar { width:3px; }
-#lp::-webkit-scrollbar-thumb { background:rgba(0,180,255,0.35); border-radius:2px; }
-#rp { right:18px; width:234px; max-height:calc(100vh - 36px); overflow-y:scroll; scroll-behavior:smooth; }
-#rp::-webkit-scrollbar { width:7px; }
-#rp::-webkit-scrollbar-track { background:rgba(0,15,40,0.7); border-radius:4px; }
-#rp::-webkit-scrollbar-thumb { background:rgba(0,180,255,0.6); border-radius:4px; border:1px solid rgba(0,220,255,0.3); }
-#rp::-webkit-scrollbar-thumb:hover { background:rgba(0,220,255,0.9); }
-#scroll-hint { position:sticky; bottom:0; text-align:center; padding:5px 0 3px;
-  background:linear-gradient(transparent,rgba(2,8,22,0.98) 60%);
-  font-size:9px; color:rgba(0,200,255,0.6); letter-spacing:0.1em; pointer-events:none;
-  animation:bhint 1.4s ease-in-out infinite; }
-@keyframes bhint { 0%,100%{transform:translateY(0)} 50%{transform:translateY(4px)} }
-/* process card hover */
-.pr { transition:background 0.2s, border-color 0.2s; cursor:pointer; }
-.pr:hover { filter:brightness(1.35); background:rgba(0,200,255,0.08) !important; }
-/* minimap / progress */
-#rp-prog { position:absolute; top:0; right:0; width:3px; height:100%; background:rgba(0,200,255,0.08); border-radius:0 12px 12px 0; pointer-events:none; }
-#rp-prog-bar { width:100%; background:rgba(0,200,255,0.5); border-radius:0 12px 12px 0; transition:height 0.1s; }
-/* speed meter */
-#speed-meter { margin-top:8px; padding:8px; background:rgba(0,180,255,0.05); border:1px solid rgba(0,180,255,0.15); border-radius:7px; }
-.meter-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; }
-.meter-lbl { font-size:7px; color:rgba(0,200,255,0.55); text-transform:uppercase; letter-spacing:0.1em; }
-.meter-bar-wrap { width:110px; height:5px; background:rgba(0,80,150,0.35); border-radius:3px; overflow:hidden; }
-.meter-bar { height:100%; border-radius:3px; transition:width 0.4s; }
-/* focus button */
-.focus-btn { display:inline-block; margin-top:4px; padding:2px 7px; font-size:7px; letter-spacing:0.1em;
-  text-transform:uppercase; color:#000; border-radius:3px; cursor:pointer; border:none;
-  font-family:'Courier New',monospace; font-weight:900; transition:opacity 0.2s; }
-.focus-btn:hover { opacity:0.8; }
-/* reset button */
-#btn-reset { display:block; width:100%; margin-top:10px; padding:6px; font-size:8px;
-  letter-spacing:0.12em; text-transform:uppercase; background:rgba(0,180,255,0.12);
-  border:1px solid rgba(0,180,255,0.3); border-radius:6px; color:#00d4ff;
-  cursor:pointer; font-family:'Courier New',monospace; transition:background 0.2s; }
-#btn-reset:hover { background:rgba(0,180,255,0.25); }
-/* screenshot button */
-#btn-ss { display:block; width:100%; margin-top:6px; padding:6px; font-size:8px;
-  letter-spacing:0.12em; text-transform:uppercase; background:rgba(0,255,136,0.08);
-  border:1px solid rgba(0,255,136,0.25); border-radius:6px; color:#00ff88;
-  cursor:pointer; font-family:'Courier New',monospace; transition:background 0.2s; }
-#btn-ss:hover { background:rgba(0,255,136,0.2); }
-/* camera presets */
-.cam-row { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
-.cam-btn { flex:1; min-width:48px; padding:4px 2px; font-size:7px; letter-spacing:0.08em;
-  text-transform:uppercase; background:rgba(0,180,255,0.1); border:1px solid rgba(0,180,255,0.25);
-  border-radius:5px; color:#00d4ff; cursor:pointer; font-family:'Courier New',monospace;
-  text-align:center; transition:background 0.2s; white-space:nowrap; }
-.cam-btn:hover { background:rgba(0,180,255,0.28); }
 
-h1 { font-size:14px; font-weight:900; letter-spacing:0.2em; color:#00d4ff;
-     text-shadow:0 0 16px #00d4ff88; margin-bottom:2px; }
-.sub { font-size:7.5px; color:rgba(0,200,255,0.45); letter-spacing:0.1em;
-       text-transform:uppercase; margin-bottom:12px; padding-bottom:10px;
-       border-bottom:1px solid rgba(0,200,255,0.1); }
-.lt { font-size:7px; letter-spacing:0.12em; text-transform:uppercase;
-      color:rgba(0,200,255,0.5); margin-bottom:6px; margin-top:10px; }
-.leg { display:flex; align-items:center; gap:7px; margin-bottom:4px; }
-.dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-.leg span { font-size:8.5px; color:rgba(200,235,255,0.8); }
-.ct { margin-top:12px; padding-top:10px; border-top:1px solid rgba(0,200,255,0.1); }
-.cl { font-size:7px; letter-spacing:0.1em; text-transform:uppercase;
-      color:rgba(0,200,255,0.55); display:block; margin-bottom:4px; }
-.rw { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
-.rw span { font-size:8.5px; color:rgba(200,235,255,0.8); }
-.tog { width:30px; height:15px; background:rgba(0,60,100,0.5); border-radius:8px;
-       cursor:pointer; position:relative;
-       border:1px solid rgba(0,180,255,0.25); transition:background .25s; }
-.tog.on { background:rgba(0,160,255,0.45); border-color:rgba(0,210,255,0.5); }
-.tog::after { content:''; position:absolute; width:9px; height:9px;
-              background:#0099cc; border-radius:50%; top:2px; left:2px;
-              transition:transform .25s; box-shadow:0 0 5px #0099ccaa; }
-.tog.on::after { transform:translateX(15px); background:#00ffcc; }
-.sr { margin-bottom:7px; }
-.sh { display:flex; justify-content:space-between; margin-bottom:2px; }
-.sv { font-size:8px; color:#00d4ff; }
-input[type=range] { width:100%; height:2px; -webkit-appearance:none;
-                    background:rgba(0,160,255,0.2); border-radius:2px;
-                    outline:none; cursor:pointer; }
-input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:11px; height:11px;
-  border-radius:50%; background:#00d4ff; cursor:pointer; box-shadow:0 0 8px #00d4ffaa; }
-
-h2 { font-size:9px; font-weight:900; letter-spacing:0.16em; color:#00d4ff;
-     margin-bottom:9px; padding-bottom:7px;
-     border-bottom:1px solid rgba(0,200,255,0.15);
-     text-shadow:0 0 12px #00d4ff66; }
-.pr { border-left:3px solid; border-radius:5px; padding:6px 8px; margin-bottom:6px; }
-.pn { font-size:8px; font-weight:900; letter-spacing:0.1em; text-transform:uppercase; margin-bottom:2px; }
-.pd { font-size:7px; line-height:1.5; color:rgba(180,215,255,0.65); }
-
-/* bottom bar */
-#bar { position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
-       background:rgba(2,8,22,0.88); border:1px solid rgba(0,200,255,0.18);
-       border-radius:18px; padding:6px 20px;
-       font-size:8.5px; color:rgba(140,210,255,0.65);
-       letter-spacing:0.09em; z-index:100; white-space:nowrap; }
-
-/* tx counter */
-#txb { position:fixed; bottom:50px; left:50%; transform:translateX(-50%);
-       background:rgba(2,8,22,0.9); border:1px solid rgba(0,230,100,0.3);
-       border-radius:8px; padding:6px 18px; z-index:100; text-align:center; }
-.tl { font-size:6.5px; color:rgba(0,230,100,0.5); letter-spacing:0.12em; text-transform:uppercase; }
-.tv { font-size:15px; color:#00e878; font-weight:900; text-shadow:0 0 10px #00e87880; }
-
-/* inspect popup */
-#tip { position:fixed; bottom:92px; left:50%; transform:translateX(-50%);
-       background:rgba(2,8,22,0.96); border:1px solid rgba(0,200,255,0.3);
-       border-radius:9px; padding:10px 16px;
-       font-size:9px; color:#88deff; letter-spacing:0.06em; line-height:1.6;
-       z-index:200; max-width:440px; text-align:center; display:none; }
-#tip strong { color:#00d4ff; font-size:10.5px; display:block; margin-bottom:3px; }
-
-/* hide labels button */
-#btn-labels {
-  position:fixed; top:18px; left:50%; transform:translateX(-50%);
-  background:rgba(2,8,22,0.92); border:1px solid rgba(0,200,255,0.35);
-  border-radius:20px; padding:6px 18px; z-index:200; cursor:pointer;
-  font-size:9px; color:#00d4ff; letter-spacing:0.13em; font-family:'Courier New',monospace;
-  text-transform:uppercase; white-space:nowrap; transition:background 0.2s, color 0.2s;
-  display:flex; align-items:center; gap:7px;
+canvas#cv {
+  position: fixed; inset: 0; z-index: 0;
+  display: block;
 }
-#btn-labels:hover { background:rgba(0,180,255,0.2); }
-#btn-labels .kbd { background:rgba(0,180,255,0.2); border:1px solid rgba(0,200,255,0.4);
-  border-radius:3px; padding:1px 5px; font-size:8px; color:#00ffcc; }
-#btn-labels.hidden-mode { background:rgba(255,80,80,0.15); border-color:rgba(255,80,80,0.4); color:#ff8080; }
-/* labels hidden state */
-.lbl.lbl-off { opacity:0 !important; pointer-events:none; }
 
-  position:fixed; top:18px; left:50%; transform:translateX(-50%);
-  background:rgba(0,180,255,0.15); border:1px solid rgba(0,200,255,0.35);
-  border-radius:20px; padding:5px 16px;
-  font-size:8px; color:#00d4ff; letter-spacing:0.12em;
-  z-index:100; white-space:nowrap;
-  animation: fadeHint 4s forwards;
+/* ─── HUD ─── */
+#hud {
+  position: fixed; inset: 0; z-index: 10;
+  pointer-events: none;
+  display: flex; flex-direction: column;
+  padding: 16px 20px;
+  gap: 8px;
 }
-@keyframes fadeHint { 0%{opacity:1} 70%{opacity:1} 100%{opacity:0} }
+
+/* TOP ROW */
+#top-row {
+  display: flex; align-items: center;
+  justify-content: space-between; gap: 12px;
+}
+
+.brand {
+  display: flex; align-items: center; gap: 10px;
+}
+
+.brand-hex {
+  width: 34px; height: 34px;
+  background: var(--teal);
+  clip-path: polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0% 50%);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 900;
+  color: var(--navy); letter-spacing: 0;
+  animation: hexPulse 3s ease-in-out infinite;
+}
+
+@keyframes hexPulse {
+  0%,100% { filter: drop-shadow(0 0 6px rgba(0,194,168,0.6)); }
+  50% { filter: drop-shadow(0 0 16px rgba(0,194,168,0.9)); }
+}
+
+.brand-text { line-height: 1.2; }
+.brand-name { font-size: 13px; font-weight: 700; color: var(--teal); letter-spacing: .1em; text-transform: uppercase; }
+.brand-sub { font-size: 10px; color: var(--muted); letter-spacing: .06em; font-family: monospace; }
+
+.stat-chips { display: flex; gap: 8px; }
+
+.chip {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 30px;
+  padding: 6px 14px;
+  backdrop-filter: blur(12px);
+  display: flex; flex-direction: column; align-items: center;
+}
+
+.chip-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-family: monospace; }
+.chip-val { font-size: 16px; font-weight: 700; color: #fff; font-family: monospace; line-height: 1.2; }
+.chip-val.up { color: var(--correct); }
+.chip-val.dn { color: var(--wrong); }
+
+/* PROGRESS */
+#prog-row {
+  display: flex; align-items: center; gap: 10px;
+}
+
+.prog-bg {
+  flex: 1; height: 3px;
+  background: rgba(0,194,168,0.08);
+  border-radius: 2px; overflow: hidden;
+}
+
+.prog-fill {
+  height: 100%; background: var(--teal);
+  border-radius: 2px;
+  box-shadow: 0 0 8px rgba(0,194,168,0.5);
+  transition: width .5s ease;
+  width: 0%;
+}
+
+.prog-lbl { font-size: 10px; color: var(--muted); font-family: monospace; white-space: nowrap; }
+
+/* VALIDATOR NODES */
+#val-row {
+  display: flex; align-items: center; gap: 8px;
+}
+
+.val-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-family: monospace; white-space: nowrap; }
+
+.val-nodes { display: flex; gap: 5px; }
+
+.vn {
+  display: flex; align-items: center; gap: 4px;
+  background: rgba(0,194,168,0.04);
+  border: 1px solid rgba(0,194,168,0.12);
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 9px; color: var(--muted);
+  font-family: monospace; transition: all .35s;
+}
+
+.vn-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--muted); flex-shrink: 0; transition: background .35s;
+}
+
+.vn.thinking { border-color: rgba(255,176,32,0.4); color: var(--amber); }
+.vn.thinking .vn-dot { background: var(--amber); animation: blink .6s infinite; }
+.vn.agree { border-color: rgba(0,255,157,0.35); color: var(--correct); }
+.vn.agree .vn-dot { background: var(--correct); box-shadow: 0 0 5px var(--correct); }
+.vn.disagree { border-color: rgba(255,61,90,0.35); color: var(--wrong); }
+.vn.disagree .vn-dot { background: var(--wrong); }
+
+@keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.3; } }
+
+/* TIMER */
+#timer-row {
+  display: flex; justify-content: center;
+}
+
+.timer-wrap {
+  position: relative; width: 52px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.timer-wrap svg {
+  position: absolute; inset: 0; transform: rotate(-90deg);
+}
+
+.timer-num {
+  font-size: 18px; font-weight: 700; color: #fff;
+  font-family: monospace; position: relative; z-index: 1;
+  transition: color .3s;
+}
+
+/* QUESTION */
+#q-area {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; gap: 8px;
+  pointer-events: none;
+}
+
+#q-card {
+  width: 100%; max-width: 660px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 22px 14px;
+  backdrop-filter: blur(18px);
+  position: relative; overflow: hidden;
+}
+
+#q-card::before {
+  content: '';
+  position: absolute; top: 0; left: -100%; right: -100%; height: 1.5px;
+  background: linear-gradient(90deg, transparent 0%, var(--teal) 50%, transparent 100%);
+  animation: sweep 3.5s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  0% { transform: translateX(-50%); opacity: .3; }
+  50% { transform: translateX(50%); opacity: 1; }
+  100% { transform: translateX(150%); opacity: .3; }
+}
+
+.q-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+
+.q-badge {
+  font-size: 9px; font-weight: 700; font-family: monospace;
+  letter-spacing: .12em; text-transform: uppercase;
+  padding: 3px 9px; border-radius: 20px;
+  background: rgba(0,194,168,0.1);
+  border: 1px solid rgba(0,194,168,0.3);
+  color: var(--teal);
+}
+
+.q-pts { font-size: 9px; font-family: monospace; color: var(--amber); margin-left: auto; }
+
+#q-text {
+  font-size: 15px; font-weight: 600;
+  color: #E8F8FF; line-height: 1.5;
+}
+
+/* ANSWER BUTTONS */
+#ans-grid {
+  width: 100%; max-width: 660px;
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  pointer-events: all;
+}
+
+.ans {
+  background: rgba(6,18,34,0.75);
+  border: 1px solid rgba(0,194,168,0.18);
+  border-radius: 10px;
+  padding: 12px 16px;
+  display: flex; align-items: flex-start; gap: 10px;
+  cursor: pointer; text-align: left;
+  transition: border-color .15s, background .15s, transform .12s;
+  backdrop-filter: blur(10px);
+  font-family: inherit;
+}
+
+.ans:hover:not(:disabled) {
+  border-color: var(--teal);
+  background: rgba(0,194,168,0.07);
+  transform: translateY(-1px);
+}
+
+.ans-key {
+  font-size: 10px; font-weight: 700; font-family: monospace;
+  letter-spacing: .1em; color: var(--teal);
+  background: rgba(0,194,168,0.1);
+  border: 1px solid rgba(0,194,168,0.25);
+  border-radius: 4px;
+  padding: 2px 6px; flex-shrink: 0; margin-top: 1px;
+}
+
+.ans-txt { font-size: 12px; color: var(--text); line-height: 1.4; }
+
+.ans.correct { border-color: var(--correct); background: rgba(0,255,157,0.08); animation: pop .35s ease; }
+.ans.correct .ans-key { color: var(--correct); border-color: rgba(0,255,157,0.4); background: rgba(0,255,157,0.15); }
+.ans.wrong { border-color: var(--wrong); background: rgba(255,61,90,0.08); animation: shake .4s ease; }
+.ans.wrong .ans-key { color: var(--wrong); border-color: rgba(255,61,90,0.4); background: rgba(255,61,90,0.15); }
+.ans.dim { opacity: .2; pointer-events: none !important; }
+.ans:disabled { pointer-events: none; }
+
+@keyframes pop { 0%{transform:scale(1)} 40%{transform:scale(1.04)} 100%{transform:scale(1)} }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(6px)} 75%{transform:translateX(-6px)} }
+
+/* CONSENSUS */
+#cons-row {
+  width: 100%; max-width: 660px;
+  background: rgba(4,12,22,0.8);
+  border: 1px solid rgba(0,194,168,0.12);
+  border-radius: 8px;
+  padding: 8px 14px;
+  display: none; align-items: center; gap: 10px;
+  backdrop-filter: blur(8px);
+}
+
+#cons-row.show { display: flex; }
+
+.cons-lbl { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font-family: monospace; white-space: nowrap; }
+
+.cons-bg { flex: 1; height: 4px; background: rgba(0,194,168,0.08); border-radius: 2px; overflow: hidden; }
+.cons-fill { height: 100%; border-radius: 2px; width: 0%; transition: width .9s cubic-bezier(.4,0,.2,1); }
+
+.cons-pct { font-size: 11px; font-weight: 700; color: #fff; font-family: monospace; white-space: nowrap; min-width: 32px; text-align: right; }
+
+/* EXPLAIN */
+#explain-row {
+  width: 100%; max-width: 660px;
+  font-size: 11px; color: var(--muted);
+  font-family: monospace; line-height: 1.6;
+  padding: 6px 12px;
+  border-left: 2px solid rgba(0,194,168,0.25);
+  display: none;
+}
+#explain-row.show { display: block; }
+
+/* NEXT BTN */
+#next-btn {
+  display: none;
+  pointer-events: all;
+  background: var(--teal);
+  color: var(--navy);
+  border: none; border-radius: 8px;
+  padding: 10px 26px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase;
+  font-family: monospace;
+  cursor: pointer;
+  transition: background .15s, transform .1s;
+}
+
+#next-btn:hover { background: #00ddbf; transform: scale(1.02); }
+
+/* STREAK TOAST */
+#s-toast {
+  position: fixed; top: 90px; left: 50%;
+  transform: translateX(-50%) translateY(-16px);
+  background: rgba(255,176,32,0.1);
+  border: 1px solid rgba(255,176,32,0.4);
+  border-radius: 30px;
+  padding: 7px 20px;
+  font-size: 11px; font-weight: 700; font-family: monospace;
+  color: var(--amber); letter-spacing: .1em; text-transform: uppercase;
+  z-index: 40; pointer-events: none;
+  opacity: 0; transition: opacity .3s, transform .3s;
+}
+
+#s-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+/* FEEDBACK FLASH */
+#fb {
+  position: fixed; inset: 0; z-index: 30;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  pointer-events: none;
+  opacity: 0; transition: opacity .25s;
+}
+
+#fb.show { opacity: 1; }
+.fb-icon { font-size: 64px; font-weight: 900; line-height: 1; filter: drop-shadow(0 0 24px currentColor); }
+.fb-icon.ok { color: var(--correct); }
+.fb-icon.bad { color: var(--wrong); }
+.fb-txt { font-size: 13px; color: rgba(255,255,255,.75); margin-top: 8px; font-family: monospace; text-align: center; max-width: 280px; line-height: 1.5; }
+
+/* ─── SPLASH ─── */
+#splash {
+  position: fixed; inset: 0; z-index: 50;
+  background: var(--navy);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; padding: 28px;
+}
+
+.hex-bg {
+  position: absolute; inset: 0; overflow: hidden; opacity: .045;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='48'%3E%3Cpolygon points='28,2 54,16 54,44 28,58 2,44 2,16' fill='none' stroke='%2300C2A8' stroke-width='1'/%3E%3C/svg%3E");
+  background-size: 56px 48px;
+}
+
+.sp-pill {
+  font-size: 9px; font-weight: 700; font-family: monospace;
+  letter-spacing: .18em; color: var(--teal); text-transform: uppercase;
+  background: rgba(0,194,168,0.07);
+  border: 1px solid rgba(0,194,168,0.22);
+  border-radius: 20px; padding: 5px 16px;
+  margin-bottom: 14px; position: relative;
+}
+
+.sp-title {
+  font-size: clamp(26px, 5.5vw, 48px);
+  font-weight: 800; color: #fff;
+  line-height: 1.1; letter-spacing: -.01em;
+  margin-bottom: 10px; position: relative;
+}
+
+.sp-title span { color: var(--teal); }
+
+.sp-body {
+  font-size: 12px; color: var(--muted);
+  line-height: 1.7; max-width: 400px;
+  margin-bottom: 22px; font-family: monospace;
+  position: relative;
+}
+
+.sp-feats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px; max-width: 560px;
+  margin-bottom: 24px; position: relative;
+}
+
+.sp-feat {
+  background: rgba(0,194,168,0.05);
+  border: 1px solid rgba(0,194,168,0.14);
+  border-radius: 8px; padding: 10px 12px;
+  text-align: left;
+}
+
+.sp-feat strong {
+  display: block; font-size: 11px;
+  color: var(--teal); margin-bottom: 3px;
+  font-family: monospace; letter-spacing: .04em;
+}
+
+.sp-feat span { font-size: 10px; color: var(--muted); line-height: 1.4; }
+
+.btn-start {
+  background: var(--teal); color: var(--navy);
+  border: none; border-radius: 8px;
+  padding: 13px 34px;
+  font-size: 11px; font-weight: 800;
+  letter-spacing: .14em; text-transform: uppercase;
+  font-family: monospace;
+  cursor: pointer; position: relative;
+  transition: background .15s, transform .1s, box-shadow .15s;
+  margin: 4px;
+}
+
+.btn-start:hover {
+  background: #00ddbf; transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0,194,168,0.28);
+}
+
+.btn-outline {
+  background: transparent; color: var(--muted);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px; padding: 13px 24px;
+  font-size: 11px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  font-family: monospace;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+  margin: 4px;
+}
+
+.btn-outline:hover { border-color: rgba(255,255,255,.28); color: #fff; }
+
+/* ─── END ─── */
+#end-screen {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(4,13,24,.96);
+  backdrop-filter: blur(16px);
+  display: none; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center; padding: 28px;
+}
+
+.end-ring-wrap {
+  position: relative; width: 110px; height: 110px;
+  margin-bottom: 16px;
+}
+
+.end-ring-wrap svg {
+  position: absolute; inset: 0;
+  transform-origin: center; transform: rotate(-90deg);
+}
+
+.end-ring-inner {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+}
+
+.end-score { font-size: 28px; font-weight: 800; color: #fff; font-family: monospace; line-height: 1; }
+.end-pts { font-size: 9px; color: var(--muted); font-family: monospace; letter-spacing: .1em; text-transform: uppercase; }
+
+.end-rank { font-size: 18px; font-weight: 800; color: var(--teal); margin-bottom: 5px; }
+.end-msg { font-size: 11px; color: var(--muted); font-family: monospace; max-width: 340px; line-height: 1.7; margin-bottom: 20px; }
+
+.end-stats {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  justify-content: center; margin-bottom: 22px;
+}
+
+.e-stat {
+  background: rgba(0,194,168,0.05);
+  border: 1px solid rgba(0,194,168,0.14);
+  border-radius: 8px; padding: 10px 18px; text-align: center;
+}
+
+.e-stat-v { font-size: 20px; font-weight: 800; color: #fff; font-family: monospace; }
+.e-stat-l { font-size: 9px; color: var(--muted); font-family: monospace; letter-spacing: .1em; text-transform: uppercase; margin-top: 2px; }
+
+/* scanlines */
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 999; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,.022) 3px, rgba(0,0,0,.022) 4px);
+}
 </style>
 </head>
 <body>
 
-<!-- LEFT PANEL -->
-<div id="lp">
-  <h1>UTEXO</h1>
-  <div class="sub">Bitcoin-Anchored Stablecoin Execution</div>
+<canvas id="cv"></canvas>
 
-  <div class="lt">Color Legend</div>
-  <div class="leg"><div class="dot" style="background:#00d4ff;box-shadow:0 0 5px #00d4ff"></div><span>UTEXO Engine &amp; Routing</span></div>
-  <div class="leg"><div class="dot" style="background:#00e87a;box-shadow:0 0 5px #00e87a"></div><span>USDT Payment Packets</span></div>
-  <div class="leg"><div class="dot" style="background:#ffb300;box-shadow:0 0 5px #ffb300"></div><span>Bitcoin / Settlement</span></div>
-  <div class="leg"><div class="dot" style="background:#b44fff;box-shadow:0 0 5px #b44fff"></div><span>RGB Asset Channels</span></div>
-  <div class="leg"><div class="dot" style="background:#ff3c3c;box-shadow:0 0 5px #ff3c3c"></div><span>Public Chain Chaos</span></div>
-  <div class="leg"><div class="dot" style="background:#f5e800;box-shadow:0 0 5px #f5e800"></div><span>Deterministic Fees</span></div>
-  <div class="leg"><div class="dot" style="background:#3a8eff;box-shadow:0 0 5px #3a8eff"></div><span>API / SDK Layer</span></div>
-
-  <div class="ct">
-    <span class="cl">Toggle Layers</span>
-    <div class="rw"><span>Lightning Routing</span><div class="tog on" id="t1"></div></div>
-    <div class="rw"><span>Bitcoin Anchoring</span><div class="tog on" id="t2"></div></div>
-    <div class="rw"><span>Public Chain</span><div class="tog on" id="t3"></div></div>
-    <div class="rw"><span>RGB Ribbons</span><div class="tog on" id="t4"></div></div>
-    <div class="rw"><span>API Hologram</span><div class="tog on" id="t5"></div></div>
-  </div>
-
-  <div style="margin-top:10px">
-    <div class="sr">
-      <div class="sh"><span class="cl" style="margin:0">Payment Speed</span><span class="sv" id="v1">70%</span></div>
-      <input type="range" id="r1" min="5" max="100" value="70">
+<!-- HUD -->
+<div id="hud">
+  <div id="top-row">
+    <div class="brand">
+      <div class="brand-hex">G</div>
+      <div class="brand-text">
+        <div class="brand-name">GenLayer</div>
+        <div class="brand-sub">Intelligent Contract Arena</div>
+      </div>
     </div>
-    <div class="sr">
-      <div class="sh"><span class="cl" style="margin:0">Congestion Level</span><span class="sv" id="v2">40%</span></div>
-      <input type="range" id="r2" min="10" max="100" value="40">
+    <div class="stat-chips">
+      <div class="chip"><div class="chip-lbl">Score</div><div class="chip-val" id="sc">0</div></div>
+      <div class="chip"><div class="chip-lbl">Streak</div><div class="chip-val" id="st">0×</div></div>
+      <div class="chip" style="padding:4px 10px;">
+        <div class="timer-wrap">
+          <svg width="52" height="52">
+            <circle cx="26" cy="26" r="21" fill="none" stroke="rgba(0,194,168,.1)" stroke-width="3.5"/>
+            <circle id="t-arc" cx="26" cy="26" r="21" fill="none" stroke="#00C2A8"
+              stroke-width="3.5" stroke-linecap="round"
+              stroke-dasharray="131.9" stroke-dashoffset="0"
+              style="transition:stroke-dashoffset .1s linear,stroke .4s"/>
+          </svg>
+          <div class="timer-num" id="t-num">25</div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- LIVE METERS -->
-  <div id="speed-meter">
-    <div class="meter-row">
-      <span class="meter-lbl">TX Throughput</span>
-      <div class="meter-bar-wrap"><div class="meter-bar" id="m-tx" style="width:70%;background:#00e87a"></div></div>
-    </div>
-    <div class="meter-row">
-      <span class="meter-lbl">Engine Load</span>
-      <div class="meter-bar-wrap"><div class="meter-bar" id="m-eng" style="width:45%;background:#00d4ff"></div></div>
-    </div>
-    <div class="meter-row">
-      <span class="meter-lbl">BTC Finality</span>
-      <div class="meter-bar-wrap"><div class="meter-bar" id="m-btc" style="width:30%;background:#ffb300"></div></div>
-    </div>
-    <div class="meter-row">
-      <span class="meter-lbl">Chain Chaos</span>
-      <div class="meter-bar-wrap"><div class="meter-bar" id="m-ch" style="width:40%;background:#ff3c3c"></div></div>
+  <div id="prog-row">
+    <div class="prog-bg"><div class="prog-fill" id="prog"></div></div>
+    <div class="prog-lbl" id="prog-lbl">0 / 12</div>
+  </div>
+
+  <div id="val-row">
+    <div class="val-lbl">Validators</div>
+    <div class="val-nodes">
+      <div class="vn" id="v0"><div class="vn-dot"></div><span>GPT-4o</span></div>
+      <div class="vn" id="v1"><div class="vn-dot"></div><span>Claude</span></div>
+      <div class="vn" id="v2"><div class="vn-dot"></div><span>Llama</span></div>
+      <div class="vn" id="v3"><div class="vn-dot"></div><span>Mistral</span></div>
+      <div class="vn" id="v4"><div class="vn-dot"></div><span>Gemini</span></div>
     </div>
   </div>
 
-  <!-- CAMERA PRESETS -->
-  <div class="lt" style="margin-top:12px">Camera Views</div>
-  <div class="cam-row">
-    <div class="cam-btn" onclick="setCamPreset('front')">Front</div>
-    <div class="cam-btn" onclick="setCamPreset('top')">Top</div>
-    <div class="cam-btn" onclick="setCamPreset('side')">Side</div>
-    <div class="cam-btn" onclick="setCamPreset('btc')">Bitcoin</div>
-    <div class="cam-btn" onclick="setCamPreset('engine')">Engine</div>
-  </div>
+  <div id="q-area">
+    <div id="q-card">
+      <div class="q-meta">
+        <div class="q-badge" id="qcat">Loading</div>
+        <div class="q-pts" id="qpts">+10 GL</div>
+      </div>
+      <div id="qtxt">Connecting to validator network...</div>
+    </div>
 
-  <!-- ACTION BUTTONS -->
-  <button id="btn-reset" onclick="resetAllBlocks()">&#8635; Reset Block Positions</button>
-  <button id="btn-ss" onclick="takeScreenshot()">&#128247; Screenshot</button>
+    <div id="ans-grid"></div>
+
+    <div id="cons-row">
+      <div class="cons-lbl">Consensus</div>
+      <div class="cons-bg"><div class="cons-fill" id="cons-fill"></div></div>
+      <div class="cons-pct" id="cons-pct">0%</div>
+    </div>
+
+    <div id="explain-row"></div>
+
+    <button id="next-btn" onclick="nextQ()">Deploy Next Question →</button>
+  </div>
 </div>
 
-<!-- RIGHT PANEL -->
-<div id="rp">
-  <h2>All 18 Processes</h2>
-  <div class="pr" style="border-color:#00e87a;background:rgba(0,232,122,0.05)"><div class="pn" style="color:#00e87a">1. Payment Origination</div><div class="pd">Merchant creates USDT tx. The green cube flying left to right.</div></div>
-  <div class="pr" style="border-color:#00d4ff;background:rgba(0,212,255,0.05)"><div class="pn" style="color:#00d4ff">2. Lightning Tunnel Entry</div><div class="pd">Packet enters off-chain Lightning channel. No public blockchain.</div></div>
-  <div class="pr" style="border-color:#00d4ff;background:rgba(0,212,255,0.05)"><div class="pn" style="color:#00d4ff">3. Liquidity Routing</div><div class="pd">Cyan nodes pick fastest route through available liquidity.</div></div>
-  <div class="pr" style="border-color:#00d4ff;background:rgba(0,212,255,0.05)"><div class="pn" style="color:#00d4ff">4. Engine Entry</div><div class="pd">Packet reaches UTEXO core. 4-layer processing begins.</div></div>
-  <div class="pr" style="border-color:#4499ff;background:rgba(0,85,204,0.06)"><div class="pn" style="color:#4499ff">5. Routing Layer</div><div class="pd">Bottom layer. Picks optimal internal path for execution.</div></div>
-  <div class="pr" style="border-color:#55aaff;background:rgba(0,102,221,0.06)"><div class="pn" style="color:#55aaff">6. Liquidity Layer</div><div class="pd">Second layer. Manages pool depths, prevents slippage.</div></div>
-  <div class="pr" style="border-color:#66bbff;background:rgba(0,136,238,0.06)"><div class="pn" style="color:#66bbff">7. Execution Layer</div><div class="pd">Third layer. Atomic debit sender, credit receiver.</div></div>
-  <div class="pr" style="border-color:#77ccff;background:rgba(0,170,240,0.06)"><div class="pn" style="color:#77ccff">8. Settlement Coord.</div><div class="pd">Top layer. Batches txs into one cryptographic commitment.</div></div>
-  <div class="pr" style="border-color:#b44fff;background:rgba(180,79,255,0.05)"><div class="pn" style="color:#b44fff">9. RGB Asset Channels</div><div class="pd">Coloured ribbons. USDT is an RGB client-validated contract.</div></div>
-  <div class="pr" style="border-color:#f5e800;background:rgba(245,232,0,0.04)"><div class="pn" style="color:#f5e800">10. Deterministic Fees</div><div class="pd">Yellow rings. Same fixed fee every tx — no gas auction.</div></div>
-  <div class="pr" style="border-color:#ffb300;background:rgba(255,179,0,0.05)"><div class="pn" style="color:#ffb300">11. Commitment Beam</div><div class="pd">Gold beam carrying SHA-256 hash of all off-chain state.</div></div>
-  <div class="pr" style="border-color:#ffb300;background:rgba(255,179,0,0.05)"><div class="pn" style="color:#ffb300">12. Bitcoin Block Stamp</div><div class="pd">Commitment anchored in a Bitcoin block. Permanent.</div></div>
-  <div class="pr" style="border-color:#ffb300;background:rgba(255,179,0,0.05)"><div class="pn" style="color:#ffb300">13. Settlement Ripple</div><div class="pd">Gold ring expands from Bitcoin. Irrevocable finality signal.</div></div>
-  <div class="pr" style="border-color:#cc8800;background:rgba(204,136,0,0.05)"><div class="pn" style="color:#cc8800">14. Blockchain Depth</div><div class="pd">Rings receding into infinity. Every prior anchor preserved.</div></div>
-  <div class="pr" style="border-color:#ff3c3c;background:rgba(255,60,60,0.05)"><div class="pn" style="color:#ff3c3c">15. Public Mempool</div><div class="pd">Red chaos background. Traditional blockchains: slow, congested.</div></div>
-  <div class="pr" style="border-color:#ff5500;background:rgba(255,85,0,0.05)"><div class="pn" style="color:#ff5500">16. Fee Spike Auction</div><div class="pd">Orange spikes. Users bid for blockspace — fees explode.</div></div>
-  <div class="pr" style="border-color:#3a8eff;background:rgba(58,142,255,0.05)"><div class="pn" style="color:#3a8eff">17. API Abstraction</div><div class="pd">Blue hologram. One SDK beam — no blockchain code needed.</div></div>
-  <div class="pr" style="border-color:#ffb300;background:rgba(255,179,0,0.05)"><div class="pn" style="color:#ffb300">18. Dispute Resolution</div><div class="pd">Bitcoin-anchored proof resolves any off-chain dispute.</div></div>
-  <div id="scroll-hint">&#9660; scroll for more &#9660;</div>
+<!-- Feedback -->
+<div id="fb">
+  <div class="fb-icon" id="fb-icon"></div>
+  <div class="fb-txt" id="fb-txt"></div>
 </div>
 
-<div id="txb"><div class="tl">Transactions Processed</div><div class="tv" id="txn">0</div></div>
-<div id="bar">Left-drag = MOVE block &nbsp;|&nbsp; Right-drag = ORBIT &nbsp;|&nbsp; Scroll = ZOOM &nbsp;|&nbsp; H = Labels &nbsp;|&nbsp; R = Reset &nbsp;|&nbsp; Click block = Details</div>
-<div id="btn-labels" onclick="toggleLabels()">
-  <span id="lbl-btn-text">&#128065; Hide All Labels</span>
-  <span class="kbd">H</span>
+<!-- Streak -->
+<div id="s-toast">Streak Bonus × <span id="s-val">0</span></div>
+
+<!-- SPLASH -->
+<div id="splash">
+  <div class="hex-bg"></div>
+  <div class="sp-pill">v2.1 · Intelligent Contract Edition</div>
+  <div class="sp-title">Master the<br><span>GenLayer</span> Protocol</div>
+  <div class="sp-body">Navigate a live validator network in 3D. Answer questions about Intelligent Contracts, GenVM, consensus, and on-chain primitives. Beat the clock and build your streak.</div>
+  <div class="sp-feats">
+    <div class="sp-feat"><strong>12 Questions</strong><span>Concepts, code, consensus & security</span></div>
+    <div class="sp-feat"><strong>Live Validators</strong><span>5 nodes reach consensus in real time</span></div>
+    <div class="sp-feat"><strong>Streak Bonuses</strong><span>Multiplied GL rewards per chain</span></div>
+    <div class="sp-feat"><strong>3D Arena</strong><span>Orbiting nodes & data streams</span></div>
+  </div>
+  <div>
+    <button class="btn-start" onclick="startGame()">Launch Arena</button>
+    <button class="btn-outline" onclick="window.open('https://docs.genlayer.com','_blank')">Read Docs</button>
+  </div>
 </div>
-<div id="tip"></div>
-<div id="drag-hint">Click &amp; drag any glowing block to move it</div>
+
+<!-- END -->
+<div id="end-screen">
+  <div class="sp-pill">Session Complete</div>
+  <div class="end-ring-wrap">
+    <svg width="110" height="110">
+      <circle cx="55" cy="55" r="48" fill="none" stroke="rgba(0,194,168,0.1)" stroke-width="5.5"/>
+      <circle id="end-arc" cx="55" cy="55" r="48" fill="none" stroke="#00C2A8"
+        stroke-width="5.5" stroke-linecap="round"
+        stroke-dasharray="301.6" stroke-dashoffset="301.6"
+        style="transition:stroke-dashoffset 1.2s cubic-bezier(.4,0,.2,1);transform:rotate(-90deg);transform-origin:55px 55px"/>
+    </svg>
+    <div class="end-ring-inner">
+      <div class="end-score" id="e-score">0</div>
+      <div class="end-pts">GL pts</div>
+    </div>
+  </div>
+  <div class="end-rank" id="e-rank">Apprentice Node</div>
+  <div class="end-msg" id="e-msg">Keep exploring the GenLayer docs!</div>
+  <div class="end-stats">
+    <div class="e-stat"><div class="e-stat-v" id="e-cor">0</div><div class="e-stat-l">Correct</div></div>
+    <div class="e-stat"><div class="e-stat-v" id="e-str">0×</div><div class="e-stat-l">Best Streak</div></div>
+    <div class="e-stat"><div class="e-stat-v" id="e-acc">0%</div><div class="e-stat-l">Accuracy</div></div>
+  </div>
+  <div>
+    <button class="btn-start" onclick="startGame()">Play Again</button>
+    <button class="btn-outline" onclick="window.open('https://docs.genlayer.com','_blank')">Explore Docs</button>
+  </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ─── RENDERER ───────────────────────────────────────────────────────────────
-var renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.3;
-document.body.appendChild(renderer.domElement);
-var cvs = renderer.domElement;
-
-var scene = new THREE.Scene();
-scene.background = new THREE.Color(0x020a18);
-scene.fog = new THREE.FogExp2(0x020a18, 0.012);
-
-var camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 500);
-camera.position.set(0, 10, 34);
-
-// ─── LIGHTS ─────────────────────────────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0x0a1828, 2.5));
-var cL  = new THREE.PointLight(0x00ccff, 6,  40); cL.position.set(0, 8, 0);    scene.add(cL);
-var gL  = new THREE.PointLight(0xffaa00, 5,  35); gL.position.set(22, 6, 0);   scene.add(gL);
-var grL = new THREE.PointLight(0x00ff88, 3,  26); grL.position.set(-22, 4, 0); scene.add(grL);
-var rL  = new THREE.PointLight(0xff4400, 2,  30); rL.position.set(0, -3, -22); scene.add(rL);
-var bL  = new THREE.PointLight(0x4488ff, 2,  22); bL.position.set(-15, 10,-3); scene.add(bL);
-
-// ─── GRID ────────────────────────────────────────────────────────────────────
-var g1 = new THREE.GridHelper(220, 110, 0x001a33, 0x001a33); g1.position.y = -7; scene.add(g1);
-var g2 = new THREE.GridHelper(220, 220, 0x000c1a, 0x000c1a); g2.position.y = -6.97; scene.add(g2);
-
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-function mkBox(w, h, d, col, op, em, emI) {
-  var mat = new THREE.MeshPhysicalMaterial({ color:col, transparent:true, opacity:op, metalness:0.7, roughness:0.15 });
-  if (em) { mat.emissive = new THREE.Color(em); mat.emissiveIntensity = emI || 0.4; }
-  return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
-}
-function mkEdge(mesh, col, op) {
-  mesh.add(new THREE.LineSegments(
-    new THREE.EdgesGeometry(mesh.geometry),
-    new THREE.LineBasicMaterial({ color:col||0x00d4ff, transparent:true, opacity:op||0.7 })
-  ));
-}
-function mkPts(n, rx, ry, rz, col, sz) {
-  var pos = new Float32Array(n*3), spd = new Float32Array(n);
-  for (var i=0; i<n; i++) {
-    pos[i*3]=(Math.random()-0.5)*rx; pos[i*3+1]=(Math.random()-0.5)*ry; pos[i*3+2]=(Math.random()-0.5)*rz;
-    spd[i]=0.008+Math.random()*0.02;
-  }
-  var geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  return { pts: new THREE.Points(geo, new THREE.PointsMaterial({ color:col, size:sz||0.08, transparent:true, opacity:0.85 })), spd:spd };
-}
-
-// ─── DRAGGABLE OBJECTS REGISTRY ──────────────────────────────────────────────
-// Each entry: { mesh, group, label }  — mesh is the raycaster target
-var draggables = [];
-
-function registerDraggable(mesh, group, label) {
-  // add highlight glow on edges
-  draggables.push({ mesh:mesh, group:group, label:label });
-}
-
-// ─── 1. PAYMENT OPERATOR ─────────────────────────────────────────────────────
-var opG = new THREE.Group(); opG.position.set(-22, 0, 0); scene.add(opG);
-var opBase = mkBox(3.5, 0.3, 2.5, 0x001811, 0.95); opBase.position.y=-2.5; mkEdge(opBase,0x00ff88,0.85); opG.add(opBase);
-var opBody = mkBox(2.8, 5.8, 2.1, 0x001c14, 0.88, 0x003322, 0.4); mkEdge(opBody,0x00ff88,0.7); opG.add(opBody);
-for (var i=0; i<9; i++) {
-  var sl = mkBox(2.4,0.1,1.8,0x003322,0.9); sl.position.y=-2.3+i*0.56; opG.add(sl);
-  var led = new THREE.Mesh(new THREE.BoxGeometry(0.14,0.07,0.07),
-    new THREE.MeshBasicMaterial({ color:i%3===0?0x00ff88:i%3===1?0x00aaff:0x004433 }));
-  led.position.set(-0.9,-2.3+i*0.56,0.87); opG.add(led);
-}
-registerDraggable(opBody, opG, 'Payment Operator');
-
-// ─── UTEXO ENGINE ─────────────────────────────────────────────────────────────
-var coreG = new THREE.Group(); scene.add(coreG);
-var coreBase = mkBox(12,0.4,7,0x001840,0.95,0x002255,0.5); coreBase.position.y=-1.9; mkEdge(coreBase,0x00aaff,0.9); coreG.add(coreBase);
-
-var layerCfg = [
-  { y:-1.1, col:0x000e30, em:0x002266, ec:0x0055cc },
-  { y: 0.1, col:0x000c28, em:0x001a44, ec:0x0044bb },
-  { y: 1.3, col:0x001032, em:0x002244, ec:0x0066dd },
-  { y: 2.5, col:0x001444, em:0x002a55, ec:0x0099ff },
-];
-var layerMeshes = [];
-layerCfg.forEach(function(cfg) {
-  var l = mkBox(11.5,0.9,6.5,cfg.col,0.82,cfg.em,0.45); l.position.y=cfg.y; mkEdge(l,cfg.ec,0.65); coreG.add(l);
-  layerMeshes.push(l);
-  registerDraggable(l, coreG, 'UTEXO Engine Layer');
-});
-
-var cap = mkBox(11.5,0.14,6.5,0x002255,0.93,0x0044aa,0.65); cap.position.y=3.3; mkEdge(cap,0x00d4ff,0.9); coreG.add(cap);
-
-var crystal = new THREE.Mesh(
-  new THREE.OctahedronGeometry(1.1, 0),
-  new THREE.MeshPhysicalMaterial({ color:0x003377, emissive:new THREE.Color(0x00aaff), emissiveIntensity:1.0, transparent:true, opacity:0.75, metalness:0.5, roughness:0.05 })
-);
-crystal.position.y=0.9; coreG.add(crystal); mkEdge(crystal,0x00ffff,1.0);
-registerDraggable(crystal, coreG, 'Execution Crystal');
-registerDraggable(coreBase, coreG, 'UTEXO Settlement Engine');
-
-// layer flow particles
-var lyrFlow = [];
-[[-0.6,0x00aaff,90],[0.5,0x0066ff,80],[1.7,0x00ccff,95],[2.9,0x00ffcc,70]].forEach(function(a) {
-  var f = mkPts(a[2],11,0.5,6,a[1],0.075); f.pts.position.y=a[0]; scene.add(f.pts); lyrFlow.push(f);
-});
-
-// RGB ribbons
-var rgbG = new THREE.Group(); coreG.add(rgbG);
-var rbCols = [0xff3366,0x00ff88,0x4488ff,0xffaa00,0xaa00ff,0x00ffff];
-var ribbons = [];
-rbCols.forEach(function(c, i) {
-  var m = new THREE.Mesh(new THREE.PlaneGeometry(10,0.13),
-    new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:0.55, side:THREE.DoubleSide }));
-  m.position.set(0,-0.95+i*0.82,0.35); m.rotation.x=0.06; rgbG.add(m);
-  ribbons.push({ mesh:m, off:Math.random()*Math.PI*2, spd:0.22+Math.random()*0.35 });
-});
-
-// ─── FEE RINGS ────────────────────────────────────────────────────────────────
-var feeG = new THREE.Group(); feeG.position.set(0,7.5,0); scene.add(feeG);
-var feeRings = [];
-[2.4,3.6,5.0].forEach(function(r, i) {
-  var ring = new THREE.Mesh(new THREE.TorusGeometry(r,0.07,8,56),
-    new THREE.MeshBasicMaterial({ color:0xf5e800, transparent:true, opacity:0.45-i*0.08 }));
-  ring.rotation.x=Math.PI/2; feeG.add(ring); feeRings.push({ mesh:ring, spd:0.004+i*0.002 });
-  for (var j=0; j<12; j++) {
-    var tk = new THREE.Mesh(new THREE.BoxGeometry(0.04,0.04,0.2),
-      new THREE.MeshBasicMaterial({ color:0xf5e800, transparent:true, opacity:0.6 }));
-    var a=j/12*Math.PI*2; tk.position.set(Math.cos(a)*r,0,Math.sin(a)*r); feeG.add(tk);
-  }
-});
-
-// ─── BITCOIN MONOLITH ────────────────────────────────────────────────────────
-var btcG = new THREE.Group(); btcG.position.set(22,0,0); scene.add(btcG);
-var btcTower = mkBox(4.8,10.5,4.8,0x1a0800,0.93,0x331500,0.4); mkEdge(btcTower,0xffaa00,0.9); btcG.add(btcTower);
-registerDraggable(btcTower, btcG, 'Bitcoin Settlement Monolith');
-
-// stacked individual blocks — each draggable
-var btcBlocks = [];
-for (var i=0; i<7; i++) {
-  var blk = mkBox(4.3,1.2,4.3,0x130800,0.88,0x221100,0.3);
-  blk.position.y=-4.6+i*1.5; mkEdge(blk,0xcc8800,0.6); btcG.add(blk);
-  btcBlocks.push(blk);
-  registerDraggable(blk, btcG, 'Bitcoin Block #' + (i+1));
-  for (var j=0; j<8; j++) {
-    var hsh = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.022,0.01),
-      new THREE.MeshBasicMaterial({ color:0xffaa00, transparent:true, opacity:0.28+Math.random()*0.4 }));
-    hsh.position.set(2.0,(Math.random()-0.5)*1.0,-1.8+j*0.52); blk.add(hsh);
-  }
-}
-var btcDisc = new THREE.Mesh(new THREE.CircleGeometry(1.65,32),
-  new THREE.MeshBasicMaterial({ color:0xffa500, transparent:true, opacity:0.26, side:THREE.DoubleSide }));
-btcDisc.rotation.y=Math.PI/2; btcDisc.position.x=2.42; btcG.add(btcDisc);
-
-// blockchain tunnel
-var tunG = new THREE.Group(); tunG.position.set(29,0,0); scene.add(tunG);
-for (var i=0; i<28; i++) {
-  var tr = new THREE.Mesh(new THREE.TorusGeometry(2.85-i*0.04,0.065,8,24),
-    new THREE.MeshBasicMaterial({ color:0xffaa00, transparent:true, opacity:Math.max(0.02,0.36-i*0.013) }));
-  tr.rotation.y=Math.PI/2; tr.position.x=i*2.6; tunG.add(tr);
-}
-
-// ─── LIGHTNING + ROUTING ─────────────────────────────────────────────────────
-var lnG = new THREE.Group(); scene.add(lnG);
-var lnCols=[0x00aaff,0x00d4ff,0x00ffcc,0x0066ff,0x44aaff,0x00eeff,0x22ccff,0x0088ff];
-for (var i=0; i<9; i++) {
-  var ly=-0.3+i*0.32, lz=(Math.random()-0.5)*1.9;
-  var cv = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(-20,ly,lz),
-    new THREE.Vector3(-13,ly+(Math.random()-0.5)*1.2,lz+(Math.random()-0.5)*0.6),
-    new THREE.Vector3(-8, ly+(Math.random()-0.5)*0.7,lz*0.5),
-    new THREE.Vector3(-6, ly,lz*0.3),
-  ]);
-  lnG.add(new THREE.Mesh(new THREE.TubeGeometry(cv,18,0.033,6,false),
-    new THREE.MeshBasicMaterial({ color:lnCols[i%8], transparent:true, opacity:0.3+Math.random()*0.35 })));
-}
-var routeNodes=[];
-for (var i=0; i<7; i++) {
-  var nd = new THREE.Mesh(new THREE.OctahedronGeometry(0.28),
-    new THREE.MeshBasicMaterial({ color:0x00d4ff, transparent:true, opacity:0.9 }));
-  nd.position.set(-18+i*2.5,Math.sin(i*0.8)*0.65,Math.cos(i*0.75)*1.0); lnG.add(nd);
-  var rng = new THREE.Mesh(new THREE.TorusGeometry(0.4,0.022,6,18),
-    new THREE.MeshBasicMaterial({ color:0x00ffcc, transparent:true, opacity:0.6 }));
-  nd.add(rng); routeNodes.push({ nd:nd, ring:rng });
-  registerDraggable(nd, lnG, 'Routing Node ' + (i+1));
-}
-
-// ─── PAYMENT PACKETS ─────────────────────────────────────────────────────────
-var pkts=[], txNum=0;
-function spawnPkt() {
-  var m = new THREE.Mesh(new THREE.BoxGeometry(0.32,0.32,0.32),
-    new THREE.MeshBasicMaterial({ color:0x00e87a, transparent:true, opacity:0.92 }));
-  var aura = new THREE.Mesh(new THREE.SphereGeometry(0.28,8,8),
-    new THREE.MeshBasicMaterial({ color:0x00e87a, transparent:true, opacity:0.14, wireframe:true }));
-  m.add(aura); scene.add(m);
-  pkts.push({ mesh:m, t:Math.random(), spd:0.003+Math.random()*0.004 });
-}
-for (var i=0; i<14; i++) spawnPkt();
-
-// ─── COMMITMENT BEAMS + RIPPLES ──────────────────────────────────────────────
-var beams=[], ripples=[], beamTmr=0;
-function fireBeam() {
-  var cv = new THREE.CatmullRomCurve3([
-    new THREE.Vector3(6,3,0), new THREE.Vector3(13,6,1.5), new THREE.Vector3(21,2,0)]);
-  var m = new THREE.Mesh(new THREE.TubeGeometry(cv,24,0.07,6,false),
-    new THREE.MeshBasicMaterial({ color:0xffcc00, transparent:true, opacity:0 }));
-  scene.add(m); beams.push({ mesh:m, t:0 });
-}
-function spawnRipple() {
-  for (var k=0; k<3; k++) {
-    var r = new THREE.Mesh(new THREE.TorusGeometry(0.65+k*0.4,0.065,6,26),
-      new THREE.MeshBasicMaterial({ color:0xffaa00, transparent:true, opacity:0.88-k*0.2 }));
-    r.position.set(22,2,0); r.rotation.y=Math.PI/2; scene.add(r);
-    ripples.push({ mesh:r, t:k*-0.12 });
-  }
-}
-
-// ─── PUBLIC CHAIN CHAOS ──────────────────────────────────────────────────────
-var chaosG = new THREE.Group(); chaosG.position.set(0,-2,-24); scene.add(chaosG);
-var chPts = mkPts(320,36,4,7,0xff4400,0.19); chPts.pts.position.y=1; chaosG.add(chPts.pts);
-var spikes=[];
-for (var i=0; i<22; i++) {
-  var sh=0.4+Math.random()*2.8;
-  var sp = new THREE.Mesh(new THREE.ConeGeometry(0.18,sh,4),
-    new THREE.MeshBasicMaterial({ color:0xff5500, transparent:true, opacity:0.76 }));
-  sp.position.set((Math.random()-0.5)*34,sh/2-0.6,Math.random()*6); chaosG.add(sp);
-  spikes.push({ mesh:sp, bh:sh });
-}
-var qBlocks=[];
-for (var i=0; i<16; i++) {
-  var qb = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.3,0.3),
-    new THREE.MeshBasicMaterial({ color:0xff6600, transparent:true, opacity:0.46 }));
-  qb.position.set((Math.random()-0.5)*32,Math.random()*3.5,Math.random()*6); chaosG.add(qb);
-  qBlocks.push({ mesh:qb, spd:(Math.random()-0.5)*0.006 });
-}
-
-// ─── API HOLOGRAM ─────────────────────────────────────────────────────────────
-var apiG = new THREE.Group(); apiG.position.set(-15,9.5,-2); scene.add(apiG);
-var apiPnl = mkBox(5.2,3.0,0.12,0x001a44,0.65,0x002266,0.4); mkEdge(apiPnl,0x3a8eff,0.7); apiG.add(apiPnl);
-registerDraggable(apiPnl, apiG, 'API Abstraction Layer');
-for (var i=0; i<6; i++) {
-  var ln2 = new THREE.Mesh(new THREE.BoxGeometry(4.7,0.012,0.01),
-    new THREE.MeshBasicMaterial({ color:0x224488, transparent:true, opacity:0.38 }));
-  ln2.position.set(0,-1.2+i*0.48,0.07); apiG.add(ln2);
-}
-var sdk = new THREE.Mesh(new THREE.BoxGeometry(0.56,0.56,0.56),
-  new THREE.MeshBasicMaterial({ color:0x3a8eff, transparent:true, opacity:0.9 }));
-sdk.position.set(0,0.25,0.54); mkEdge(sdk,0x88aaff,0.9); apiG.add(sdk);
-var appCols2=[0x00aaff,0x00e87a,0xffb300], appCubes=[];
-appCols2.forEach(function(c, i) {
-  var ac = new THREE.Mesh(new THREE.BoxGeometry(0.38,0.38,0.38),
-    new THREE.MeshBasicMaterial({ color:c, transparent:true, opacity:0.88 }));
-  ac.position.set(-1.4+i*1.4,1.05,0.42); mkEdge(ac,c,0.8); apiG.add(ac); appCubes.push(ac);
-});
-var apiCurve = new THREE.CatmullRomCurve3([
-  new THREE.Vector3(-15,9.5,-2),new THREE.Vector3(-9,6.5,-1),new THREE.Vector3(-2.5,3.8,0)]);
-var apiBeam = new THREE.Mesh(new THREE.TubeGeometry(apiCurve,22,0.045,6,false),
-  new THREE.MeshBasicMaterial({ color:0x3a8eff, transparent:true, opacity:0.42 }));
-scene.add(apiBeam);
-var apiPkts2=[];
-for (var i=0; i<7; i++) {
-  var ap = new THREE.Mesh(new THREE.SphereGeometry(0.1,6,6),
-    new THREE.MeshBasicMaterial({ color:0x88ccff, transparent:true, opacity:0.85 }));
-  scene.add(ap); apiPkts2.push({ mesh:ap, t:i/7 });
-}
-
-// ─── STARS ───────────────────────────────────────────────────────────────────
-var sPos=new Float32Array(5000*3);
-for (var i=0; i<5000; i++) { sPos[i*3]=(Math.random()-0.5)*600; sPos[i*3+1]=(Math.random()-0.5)*350; sPos[i*3+2]=-70-Math.random()*280; }
-var sGeo=new THREE.BufferGeometry(); sGeo.setAttribute('position',new THREE.BufferAttribute(sPos,3));
-scene.add(new THREE.Points(sGeo, new THREE.PointsMaterial({ color:0x334466, size:0.38, transparent:true, opacity:0.5 })));
-
-// ─── LABELS ───────────────────────────────────────────────────────────────────
-var labelDefs = [
-  [-22, 5.5,  0,   'c-green',  'PAYMENT ORIGINATION', 'USDT tx created here'],
-  [-22,-4.2,  0,   'c-green',  'PAYMENT OPERATOR',    'Merchant / wallet server'],
-  [-13, 3.8,  0,   'c-cyan',   'LIGHTNING ENTRY',     'Off-chain pipe opened'],
-  [ -9, 2.8,  0,   'c-cyan',   'LIQUIDITY ROUTING',   'Fastest path selected'],
-  [  0, 5.4,  0,   'c-cyan',   'UTEXO ENGINE',        'Off-chain settlement core'],
-  [ -7,-1.0, 4.5,  'c-cyan',   'ROUTING LAYER',       'Path dispatch'],
-  [ -7, 0.1, 4.5,  'c-cyan',   'LIQUIDITY LAYER',     'Pool management'],
-  [ -7, 1.3, 4.5,  'c-cyan',   'EXECUTION LAYER',     'Atomic debit / credit'],
-  [ -7, 2.5, 4.5,  'c-cyan',   'SETTLEMENT COORD.',   'Batch commitment prep'],
-  [  6, 1.5, 4.5,  'c-purple', 'RGB CHANNELS',        'Stablecoin contracts'],
-  [  0,10.2,  0,   'c-yellow', 'FEE RINGS',           'Fixed cost — no auction'],
-  [ 13, 6.0,  0,   'c-gold',   'COMMITMENT BEAM',     'SHA-256 hash to Bitcoin'],
-  [ 22, 7.2,  0,   'c-gold',   'BITCOIN MONOLITH',    'Block stamp = finality'],
-  [ 22,-6.0,  0,   'c-gold',   'SETTLEMENT RIPPLE',   'Irrevocable finality wave'],
-  [ 30, 4.5,  0,   'c-gold',   'BLOCKCHAIN DEPTH',    'Immutable chain history'],
-  [  0,-4.8,-24,   'c-red',    'PUBLIC MEMPOOL',      'Congested and slow'],
-  [  0,-1.5,-24,   'c-red',    'FEE SPIKE AUCTION',   'Gas war — bids explode'],
-  [-15,13.5, -2,   'c-blue',   'API ABSTRACTION',     'SDK connects to UTEXO'],
-];
-var lblEls=[];
-labelDefs.forEach(function(d) {
-  var div=document.createElement('div');
-  div.className='lbl '+d[3];
-  div.innerHTML='<div class="lbl-line"></div><div class="lbl-box">'+d[4]+'</div><div class="lbl-sub">'+d[5]+'</div>';
-  document.body.appendChild(div);
-  lblEls.push({ el:div, world:new THREE.Vector3(d[0],d[1],d[2]) });
-});
-
-// ─── DRAG SYSTEM ─────────────────────────────────────────────────────────────
-/*
-  Left-click on a draggable object → drag it in the XZ plane (horizontal)
-  Right-click / middle-click anywhere → orbit camera
-  No button drag on empty space → orbit camera
-*/
-var rcst    = new THREE.Raycaster();
-var mVec    = new THREE.Vector2();
-var dragPlane = new THREE.Plane();
-var dragPoint = new THREE.Vector3();
-var dragOffset = new THREE.Vector3();
-
-var activeDrag   = null;   // { group, mesh }
-var isOrbiting   = false;
-var isDraggingObj = false;
-var mouseMoved   = false;
-var lastX=0, lastY=0;
-
-// camera orbit state
-var autoOrb=true, orbAngle=0;
-var tTh=0, tPh=0.22, tR=34, cTh=0, cPh=0.22, cR=34;
-
-function getIntersects(ex, ey) {
-  mVec.x=(ex/innerWidth)*2-1; mVec.y=-(ey/innerHeight)*2+1;
-  rcst.setFromCamera(mVec, camera);
-  var meshList = draggables.map(function(d){ return d.mesh; });
-  return rcst.intersectObjects(meshList, false);
-}
-
-function onPointerDown(ex, ey, isRight) {
-  mouseMoved=false; lastX=ex; lastY=ey;
-  if (isRight) { isOrbiting=true; autoOrb=false; cvs.classList.add('orbiting'); return; }
-
-  // check if clicking a draggable
-  var hits = getIntersects(ex, ey);
-  if (hits.length > 0) {
-    var hitMesh = hits[0].object;
-    var found = null;
-    for (var i=0; i<draggables.length; i++) {
-      if (draggables[i].mesh === hitMesh) { found=draggables[i]; break; }
-    }
-    if (found) {
-      isDraggingObj=true; activeDrag=found;
-      autoOrb=false; cvs.classList.add('dragging-obj');
-
-      // drag plane at y=group.position.y + hitMesh.position.y
-      var worldY = found.group.position.y + found.mesh.position.y;
-      dragPlane.set(new THREE.Vector3(0,1,0), -worldY);
-
-      rcst.ray.intersectPlane(dragPlane, dragPoint);
-      // offset = object world pos - hit point on plane
-      var worldPos = new THREE.Vector3();
-      found.mesh.getWorldPosition(worldPos);
-      dragOffset.copy(worldPos).sub(dragPoint);
-
-      // highlight selected
-      highlightMesh(found.mesh, true);
-      return;
-    }
-  }
-
-  // no draggable hit — orbit
-  isOrbiting=true; autoOrb=false; cvs.classList.add('orbiting');
-}
-
-function onPointerMove(ex, ey) {
-  var dx=ex-lastX, dy=ey-lastY;
-  if (Math.abs(dx)>2||Math.abs(dy)>2) mouseMoved=true;
-  if (isDraggingObj && activeDrag) {
-    mVec.x=(ex/innerWidth)*2-1; mVec.y=-(ey/innerHeight)*2+1;
-    rcst.setFromCamera(mVec, camera);
-    if (rcst.ray.intersectPlane(dragPlane, dragPoint)) {
-      var newWorld = dragPoint.clone().add(dragOffset);
-      // convert world pos to group-local
-      var localPos = activeDrag.group.worldToLocal(newWorld.clone());
-      activeDrag.mesh.position.x = localPos.x;
-      activeDrag.mesh.position.z = localPos.z;
-      // keep y fixed (no vertical drag unless shift held)
-    }
-  } else if (isOrbiting) {
-    tTh -= dx*0.006;
-    tPh  = Math.max(-0.55, Math.min(1.15, tPh+dy*0.006));
-  }
-  lastX=ex; lastY=ey;
-}
-
-function onPointerUp(ex, ey) {
-  if (isDraggingObj && activeDrag) {
-    highlightMesh(activeDrag.mesh, false);
-    isDraggingObj=false;
-    // show label if not dragged
-    if (!mouseMoved) showTip(activeDrag);
-    activeDrag=null;
-  }
-  if (isOrbiting) { isOrbiting=false; setTimeout(function(){ autoOrb=true; }, 4000); }
-  cvs.classList.remove('dragging-obj','orbiting');
-}
-
-function highlightMesh(mesh, on) {
-  if (mesh.material) {
-    if (on) {
-      mesh.material.emissiveIntensity = (mesh.material.emissiveIntensity || 0) + 0.6;
-    } else {
-      mesh.material.emissiveIntensity = Math.max(0, (mesh.material.emissiveIntensity || 0.6) - 0.6);
-    }
-  }
-}
-
-// ─── SHOW INSPECT TIP ─────────────────────────────────────────────────────────
-var tipEl = document.getElementById('tip');
-var inspDesc = {
-  'Payment Operator':
-    'ROLE: Merchant, wallet or fintech server. WORK: Constructs and signs a USDT transfer instruction, assigns a payment ID, and injects the signed packet into the Lightning channel. Acts as the entry gate into the UTEXO network.',
-  'Execution Crystal':
-    'ROLE: Atomic execution core of UTEXO. WORK: Receives validated transfer requests, applies a cryptographic state transition — atomically debiting the sender balance and crediting the receiver in the RGB contract state. Guarantees no partial fills and no double-spend. If validation fails, the entire operation is rolled back instantly.',
-  'UTEXO Settlement Engine':
-    'ROLE: Central off-chain processor. WORK: Orchestrates all 4 layers — receives Lightning packets, validates asset state via RGB, executes atomic transfers in the Execution Crystal, and batches finalized state changes into a SHA-256 commitment hash for Bitcoin anchoring. Handles thousands of TXs per second without touching the public blockchain.',
-  'API Abstraction Layer':
-    'ROLE: Developer integration gateway. WORK: Exposes a single REST/SDK API that wallets, exchanges and payment gateways connect to. Translates standard payment calls into UTEXO-native Lightning + RGB operations. Developers write zero blockchain code.',
-  'Routing Node 1':
-    'ROUTING NODE 1 — Channel Scout. WORK: Scans all available Lightning channels from the Payment Operator. Measures real-time liquidity depth, latency and fee cost on each path. Discards paths with insufficient capacity and forwards the top candidates downstream.',
-  'Routing Node 2':
-    'ROUTING NODE 2 — Path Scorer. WORK: Scores candidate paths using a weighted algorithm (liquidity weight 40%, latency 35%, fee 25%). Selects the single best route and locks a micro-reservation on that channel to prevent race conditions.',
-  'Routing Node 3':
-    'ROUTING NODE 3 — Packet Forwarder. WORK: Receives the payment packet and HTLC (Hash Time Locked Contract) from the previous node. Verifies the HTLC hash matches the payment preimage, decrements its local channel balance, and forwards the packet to the next hop within 50ms.',
-  'Routing Node 4':
-    'ROUTING NODE 4 — Mid-Path Relay. WORK: Acts as a liquidity bridge between two channel segments with different capacities. Rebalances its local channel state using circular payments if needed to maintain routing availability for future transactions.',
-  'Routing Node 5':
-    'ROUTING NODE 5 — Congestion Guard. WORK: Monitors the downstream channel for congestion signals. If the next hop is saturated, it triggers a dynamic re-route back upstream to Routing Node 2 to select the next-best path. Prevents packet loss under load.',
-  'Routing Node 6':
-    'ROUTING NODE 6 — UTEXO Gateway. WORK: Final Lightning hop before the UTEXO engine. Validates the HTLC preimage against the payment hash, settles the channel update, and delivers the decoded payment instruction to the UTEXO Routing Layer for engine processing.',
-  'Routing Node 7':
-    'ROUTING NODE 7 — Confirmation Relay. WORK: After UTEXO processes the payment, this node propagates the HTLC settlement signal back through the channel chain to release locked liquidity at every prior hop, completing the full circular settlement of the Lightning channel state.',
-  'UTEXO Engine Layer':
-    'UTEXO PROCESSING LAYER. WORK: One of 4 stacked processing stages inside the engine. Each layer transforms the payment packet — from raw routing data at the bottom, through liquidity validation, atomic execution, and finally commitment packaging at the top. Particles flowing through each layer represent live transaction data being processed.',
-};
-
-// Bitcoin block detailed work descriptions
-var btcBlockWork = [
-  'BTC BLOCK 1 — Genesis Anchor. WORK: The oldest commitment block in this batch. Contains the Merkle root of all UTEXO state transitions from the very first settlement epoch. Every subsequent block references this one, creating a tamper-proof chain back to origin. Stored permanently in Bitcoin block height ~870,000.',
-  'BTC BLOCK 2 — State Snapshot. WORK: Captures a SHA-256 commitment hash of all RGB asset balances at a specific point in time. Acts as a checkpoint — if any off-chain participant disputes a balance, this block is referenced as the canonical truth. Cannot be altered without redoing all subsequent Bitcoin proof-of-work.',
-  'BTC BLOCK 3 — Batch Seal #3. WORK: Seals a batch of ~2,400 UTEXO transactions into a single 32-byte hash committed to Bitcoin. This means 2,400 payments are secured by full Bitcoin mining power at the cost of one tiny OP_RETURN transaction. Maximum efficiency anchoring.',
-  'BTC BLOCK 4 — Mid-Chain Anchor. WORK: Periodic anchor block that resets the commitment accumulator. After this block, a new batch starts collecting. Prevents commitment chains from growing too long. Also serves as a synchronization point for all UTEXO nodes to agree on current state.',
-  'BTC BLOCK 5 — Dispute Evidence Block. WORK: Contains commitments used specifically for dispute resolution. If a counterparty claims a different balance, the UTEXO node broadcasts this block\'s pre-image to prove the correct state. Bitcoin miners have already validated this proof — it is irrefutable.',
-  'BTC BLOCK 6 — High-Value Anchor. WORK: Anchors settlement for transactions above a configurable threshold (e.g. >$10,000 USDT). Large transfers get their own dedicated commitment block for extra auditability and regulatory compliance. Provides an on-chain audit trail for institutional users.',
-  'BTC BLOCK 7 — Latest Finality. WORK: The most recent Bitcoin commitment from UTEXO. Contains the current state root of all active RGB contracts and channel balances. Once this block is 6 confirmations deep in Bitcoin, all UTEXO settlements it covers achieve absolute, irreversible finality.',
+// ─── DATA ────────────────────────────────────────────────────────────────────
+var QS = [
+  {cat:"Core Concept", pts:10,
+   q:"What programming language are GenLayer Intelligent Contracts written in?",
+   opts:["Solidity","Python","Rust","TypeScript"], a:1,
+   ex:"GenLayer Intelligent Contracts are standard Python — no new language needed."},
+  {cat:"Primitive", pts:10,
+   q:"Which primitive fetches live web content inside a contract, replicated across all validators?",
+   opts:["fetch_url()","http_get()","get_webpage()","web_fetch()"], a:2,
+   ex:"get_webpage(url) fetches live content and replicates it across validators for tamper-resistance."},
+  {cat:"Primitive", pts:10,
+   q:"What does eq_principle(prompt, data) return after validator consensus?",
+   opts:["A string","An integer","A boolean","A JSON object"], a:2,
+   ex:"eq_principle evaluates a natural-language condition and returns a consensus boolean."},
+  {cat:"Architecture", pts:15,
+   q:"What is the primary role of GenVM in the GenLayer execution stack?",
+   opts:["Store NFT metadata","Sandboxed Python runtime for contract execution","Sign user transactions","Serve the web frontend"], a:1,
+   ex:"GenVM is the sandboxed Python Virtual Machine that runs Intelligent Contracts."},
+  {cat:"Consensus", pts:15,
+   q:"Why does GenLayer use semantic equivalence rather than byte-level equality for consensus?",
+   opts:["Smaller block size","LLMs may phrase identical answers differently","Lower gas costs","Faster finality"], a:1,
+   ex:"LLMs are non-deterministic — semantic equivalence checks meaning, not exact character output."},
+  {cat:"Storage", pts:10,
+   q:"Which Python decorator maps class attributes to persistent on-chain state?",
+   opts:["@persist","@onchain","@storage","@state"], a:2,
+   ex:"@storage maps Python class attributes to on-chain key-value slots scoped to the contract address."},
+  {cat:"Security", pts:15,
+   q:"What is the primary security risk of embedding raw get_webpage() output into LLM prompts?",
+   opts:["Data too large","Prompt injection — malicious pages override prompt intent","High gas cost","Validators reject web content"], a:1,
+   ex:"Adversarial web content can hijack LLM reasoning. Always sanitise retrieved content first."},
+  {cat:"Consensus", pts:15,
+   q:"What happens when validators fail to reach supermajority consensus?",
+   opts:["State committed anyway","Transaction silently dropped","Transaction retried with fresh validators or reverted","Contract permanently deleted"], a:2,
+   ex:"GenLayer retries with a fresh validator set. After max retries the transaction reverts."},
+  {cat:"Architecture", pts:20,
+   q:"What does the Optimistic Concurrency Engine (OCE) do inside GenVM?",
+   opts:["Encrypts contract state","Allows parallel validator execution then reconciles differences","Prevents validator disagreements","Manages gas fee distribution"], a:1,
+   ex:"The OCE lets validators run optimistically in parallel, boosting throughput and reconciling after."},
+  {cat:"API", pts:10,
+   q:"Which decorator exposes a GenLayer contract method as callable via external transactions?",
+   opts:["@external","@gl.public","@callable","@expose"], a:1,
+   ex:"@gl.public marks a method as part of the contract's public interface for external transaction calls."},
+  {cat:"Security", pts:20,
+   q:"Why does GenLayer encourage validators to run different LLM backends?",
+   opts:["Cost reduction","Prevent correlated failures — different models cover each other's blind spots","Regulatory compliance","Marketing reasons"], a:1,
+   ex:"Model diversity is a security feature — if one model has a bias, other validators compensate."},
+  {cat:"API", pts:10,
+   q:"What does @gl.public.view mean for a GenLayer contract method?",
+   opts:["Broadcasts data publicly","Read-only and free to call — no gas or consensus needed","Resets contract state","Emits a blockchain event"], a:1,
+   ex:"View methods only read state — they don't write, so they require no transaction or consensus."}
 ];
 
-for (var i=0; i<draggables.length; i++) {
-  var lbl = draggables[i].label;
-  if (lbl.indexOf('Bitcoin Block')===0) {
-    var bNum = parseInt(lbl.replace('Bitcoin Block #','')) - 1;
-    if (bNum >= 0 && bNum < btcBlockWork.length) {
-      inspDesc[lbl] = btcBlockWork[bNum];
-    }
-  }
+var LETTERS = ['A','B','C','D'];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+var questions=[], cur=0, score=0, streak=0, bestStreak=0, correct=0;
+var answered=false, tv=25, tInt=null, running=false;
+
+function shuf(a) {
+  var b=a.slice();
+  for(var i=b.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=b[i];b[i]=b[j];b[j]=t;}
+  return b;
 }
 
-// UTEXO layer-specific descriptions
-var layerWork = [
-  'ROUTING LAYER (Bottom). WORK: Receives raw payment instructions from the Lightning Gateway Node. Parses the HTLC data, extracts the destination address and amount, validates the payment hash, and dispatches the job to the Liquidity Layer queue. Processes ~8,000 routing decisions per second.',
-  'LIQUIDITY LAYER (2nd). WORK: Checks whether the RGB asset channel between sender and receiver has sufficient confirmed balance. If balance is low, triggers an automatic rebalancing sub-routine. Calculates the precise debit/credit amounts including fixed UTEXO fee. Approves or rejects the transfer before it reaches execution.',
-  'EXECUTION LAYER (3rd). WORK: Performs the actual atomic state transition. Updates the sender\'s RGB contract balance (debit), updates the receiver\'s RGB contract balance (credit), and records the transfer in the local state accumulator. The entire operation is wrapped in an atomic lock — either both updates succeed or neither does.',
-  'SETTLEMENT COORDINATION (Top). WORK: Collects all completed transfers from the Execution Layer into a Merkle tree. Computes the root hash (SHA-256) of the accumulated state changes. Packages it as a Bitcoin OP_RETURN payload and fires the Commitment Beam to the Bitcoin Monolith every ~3 seconds.',
-];
+// ─── THREE.JS ────────────────────────────────────────────────────────────────
+var renderer, scene, camera, clock;
+var orbits=[], contractMesh, contractWire;
+var burstPs, burstGeo, burstVels=[], burstActive=false, burstT=0;
+var streamMats=[];
+var ring1,ring2,ring3;
+var camT=0, loopT=0;
 
-for (var i=0; i<layerMeshes.length; i++) {
-  inspDesc['UTEXO Layer ' + i] = layerWork[i];
-  // re-register draggable with unique label for each layer
-  for (var j=0; j<draggables.length; j++) {
-    if (draggables[j].mesh === layerMeshes[i]) {
-      draggables[j].label = 'UTEXO Layer ' + i;
-    }
+function initThree() {
+  var cv = document.getElementById('cv');
+  
+  try {
+    renderer = new THREE.WebGLRenderer({canvas:cv, antialias:true, alpha:true});
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  } catch(e) {
+    console.warn('WebGL failed:', e);
+    return;
   }
-}
 
-function showTip(drag) {
-  var desc = inspDesc[drag.label];
-  if (!desc) {
-    // try partial match for routing nodes
-    for (var key in inspDesc) {
-      if (drag.label.indexOf(key) === 0 || key.indexOf(drag.label.replace(/\s\d+$/,'')) === 0) {
-        desc = inspDesc[key]; break;
-      }
-    }
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x040D18, 0.03);
+
+  camera = new THREE.PerspectiveCamera(55, window.innerWidth/window.innerHeight, 0.1, 300);
+  camera.position.set(0, 3, 18);
+  camera.lookAt(0, 0.5, 0);
+
+  scene.add(new THREE.AmbientLight(0x061828, 2));
+  var pL = new THREE.PointLight(0x00C2A8, 2.5, 55);
+  pL.position.set(0,10,6); scene.add(pL);
+  var fL = new THREE.PointLight(0x102050, 1.5, 70);
+  fL.position.set(-12,-4,-10); scene.add(fL);
+
+  // Grid floor
+  var gGeo = new THREE.PlaneGeometry(100,100,36,36);
+  var gMat = new THREE.MeshBasicMaterial({color:0x00C2A8, wireframe:true, transparent:true, opacity:0.05});
+  var gridM = new THREE.Mesh(gGeo, gMat);
+  gridM.rotation.x = -Math.PI/2;
+  gridM.position.y = -6;
+  scene.add(gridM);
+
+  // Central contract octahedron
+  var cG = new THREE.OctahedronGeometry(1.3,1);
+  var cM = new THREE.MeshPhongMaterial({color:0x00C2A8, emissive:0x00C2A8, emissiveIntensity:0.25, transparent:true, opacity:0.16});
+  contractMesh = new THREE.Mesh(cG, cM);
+  var cwG = new THREE.OctahedronGeometry(1.4,1);
+  var cwM = new THREE.MeshBasicMaterial({color:0x00C2A8, wireframe:true, transparent:true, opacity:0.5});
+  contractWire = new THREE.Mesh(cwG, cwM);
+  var cGroup = new THREE.Group();
+  cGroup.add(contractMesh);
+  cGroup.add(contractWire);
+  cGroup.position.set(0,0.5,0);
+  scene.add(cGroup);
+  contractMesh._group = cGroup;
+
+  // Validator orbs (5 icosahedra orbiting)
+  var orbColors = [0x00C2A8, 0x2D8CFF, 0xFFB020, 0xFF3D5A, 0x00FF9D];
+  for(var i=0;i<5;i++){
+    var ang = (i/5)*Math.PI*2;
+    var og = new THREE.IcosahedronGeometry(0.5, 1);
+    var om = new THREE.MeshPhongMaterial({
+      color:orbColors[i], emissive:orbColors[i],
+      emissiveIntensity:0.35, transparent:true, opacity:0.8
+    });
+    var owg = new THREE.IcosahedronGeometry(0.57, 1);
+    var owm = new THREE.MeshBasicMaterial({color:orbColors[i], wireframe:true, transparent:true, opacity:0.45});
+    var oGrp = new THREE.Group();
+    oGrp.add(new THREE.Mesh(og,om));
+    oGrp.add(new THREE.Mesh(owg,owm));
+    oGrp.position.set(Math.cos(ang)*7, Math.sin(i*0.9)*0.7, Math.sin(ang)*7-2);
+    scene.add(oGrp);
+    orbits.push({g:oGrp, m:om, wm:owm, ang:ang, baseColor:orbColors[i]});
   }
-  if (!desc) return;
-  tipEl.innerHTML = '<strong>' + drag.label + '</strong>' + desc;
-  tipEl.style.display = 'block';
-  clearTimeout(tipEl._t);
-  tipEl._t = setTimeout(function(){ tipEl.style.display='none'; }, 9000);
-}
 
-// ─── HIDE / SHOW ALL LABELS ──────────────────────────────────────────────────
-var labelsVisible = true;
-var btnLabels = document.getElementById('btn-labels');
-var btnLblText = document.getElementById('lbl-btn-text');
+  // Data stream lines
+  for(var s=0;s<20;s++){
+    var pts=[];
+    var sx=(Math.random()-0.5)*20;
+    var sz=(Math.random()-0.5)*20-5;
+    for(var p=0;p<10;p++) pts.push(new THREE.Vector3(sx+(Math.random()-.5)*.3, -6+p*1.4, sz+(Math.random()-.5)*.3));
+    var sGeo = new THREE.BufferGeometry().setFromPoints(pts);
+    var sMat = new THREE.LineBasicMaterial({color:0x00C2A8, transparent:true, opacity:Math.random()*.2+.04});
+    scene.add(new THREE.Line(sGeo, sMat));
+    streamMats.push({m:sMat, sp:Math.random()*.3+.1, off:Math.random()*Math.PI*2});
+  }
 
-function toggleLabels() {
-  labelsVisible = !labelsVisible;
-  lblEls.forEach(function(lb) {
-    if (labelsVisible) {
-      lb.el.classList.remove('lbl-off');
-    } else {
-      lb.el.classList.add('lbl-off');
-    }
+  // Particles
+  var pG = new THREE.BufferGeometry();
+  var pA = new Float32Array(300*3);
+  for(var k=0;k<300*3;k++) pA[k]=(Math.random()-.5)*65;
+  pG.setAttribute('position', new THREE.BufferAttribute(pA,3));
+  scene.add(new THREE.Points(pG, new THREE.PointsMaterial({color:0x00C2A8, size:0.09, transparent:true, opacity:0.4})));
+
+  // Rings
+  function mkRing(r,tb,col,x,y,z,rx,ry){
+    var g=new THREE.TorusGeometry(r,tb,8,56);
+    var m=new THREE.MeshBasicMaterial({color:col,wireframe:true,transparent:true,opacity:.11});
+    var mesh=new THREE.Mesh(g,m);
+    mesh.position.set(x,y,z); mesh.rotation.x=rx; mesh.rotation.y=ry;
+    scene.add(mesh); return mesh;
+  }
+  ring1=mkRing(15,.08,0x00C2A8,0,0,-20,Math.PI/4,0);
+  ring2=mkRing(10,.06,0x2D8CFF,-14,2,-13,0,Math.PI/5);
+  ring3=mkRing(7,.05,0x00C2A8,12,-2,-9,Math.PI/3,Math.PI/4);
+
+  // Burst particles
+  burstGeo = new THREE.BufferGeometry();
+  var bA = new Float32Array(80*3);
+  burstGeo.setAttribute('position', new THREE.BufferAttribute(bA,3));
+  var bMat = new THREE.PointsMaterial({color:0x00FF9D, size:0.25, transparent:true, opacity:0});
+  burstPs = new THREE.Points(burstGeo, bMat);
+  scene.add(burstPs);
+
+  clock = new THREE.Clock();
+
+  window.addEventListener('resize', function(){
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
   });
-  if (labelsVisible) {
-    btnLblText.textContent = '\uD83D\uDC41 Hide All Labels';
-    btnLabels.classList.remove('hidden-mode');
+
+  requestAnimationFrame(loop3d);
+}
+
+function loop3d() {
+  requestAnimationFrame(loop3d);
+  if(!clock) return;
+  var dt = Math.min(clock.getDelta(), 0.05);
+  loopT += dt;
+
+  // Camera drift
+  camT += dt*0.05;
+  camera.position.x = Math.sin(camT*0.7)*2;
+  camera.position.y = 3 + Math.sin(camT*0.45)*0.5;
+  camera.lookAt(0, 0.5, 0);
+
+  // Contract node
+  if(contractMesh && contractMesh._group) {
+    contractMesh._group.rotation.y += dt*0.4;
+    contractMesh._group.rotation.x += dt*0.15;
+    contractMesh._group.position.y = 0.5 + Math.sin(loopT*0.8)*0.2;
+    contractMesh.material.emissiveIntensity = 0.2 + Math.sin(loopT*1.8)*0.13;
+  }
+
+  // Orbs orbit
+  for(var i=0;i<orbits.length;i++){
+    var o=orbits[i];
+    var a = o.ang + loopT*(0.18+i*0.02);
+    var r = 7 + Math.sin(loopT*0.4+i)*0.4;
+    o.g.position.x = Math.cos(a)*r;
+    o.g.position.z = Math.sin(a)*r - 2;
+    o.g.position.y = Math.sin(loopT*0.6+i*1.3)*0.9;
+    o.g.rotation.y += dt*0.5;
+    o.g.rotation.x += dt*0.28;
+  }
+
+  // Rings
+  ring1.rotation.x+=dt*.055; ring1.rotation.z+=dt*.035;
+  ring2.rotation.y+=dt*.07; ring2.rotation.x+=dt*.025;
+  ring3.rotation.z+=dt*.09; ring3.rotation.y+=dt*.045;
+
+  // Streams flicker
+  for(var s=0;s<streamMats.length;s++){
+    var sm=streamMats[s];
+    sm.m.opacity = 0.03 + Math.abs(Math.sin(loopT*sm.sp+sm.off))*0.13;
+  }
+
+  // Burst
+  if(burstActive){
+    burstT += dt;
+    var ba = burstGeo.attributes.position.array;
+    for(var b=0;b<burstVels.length;b++){
+      ba[b*3]   += burstVels[b].x*dt;
+      ba[b*3+1] += burstVels[b].y*dt;
+      ba[b*3+2] += burstVels[b].z*dt;
+    }
+    burstGeo.attributes.position.needsUpdate = true;
+    burstPs.material.opacity = Math.max(0, 1-burstT/1.0);
+    if(burstT>1.0) burstActive=false;
+  }
+
+  renderer.render(scene, camera);
+}
+
+function triggerBurst(col){
+  burstPs.material.color.setHex(col);
+  burstPs.material.opacity = 1;
+  burstActive=true; burstT=0; burstVels=[];
+  var ba = burstGeo.attributes.position.array;
+  for(var i=0;i<80;i++){
+    var ang=Math.random()*Math.PI*2, el=(Math.random()-.5)*Math.PI, sp=4+Math.random()*6;
+    burstVels.push({x:Math.cos(ang)*Math.cos(el)*sp, y:Math.sin(el)*sp, z:Math.sin(ang)*Math.cos(el)*sp});
+    ba[i*3]=0; ba[i*3+1]=0.5; ba[i*3+2]=0;
+  }
+  burstGeo.attributes.position.needsUpdate=true;
+}
+
+function flashOrb(idx, isCorrect){
+  if(idx>=orbits.length) return;
+  var o=orbits[idx%orbits.length];
+  var col = isCorrect ? 0x00FF9D : 0xFF3D5A;
+  o.m.emissive.setHex(col); o.m.emissiveIntensity=1.2;
+  o.wm.color.setHex(col);
+  setTimeout(function(){
+    o.m.emissive.setHex(o.baseColor); o.m.emissiveIntensity=0.35;
+    o.wm.color.setHex(o.baseColor);
+  }, 1100);
+}
+
+// ─── GAME LOGIC ──────────────────────────────────────────────────────────────
+function startGame(){
+  document.getElementById('splash').style.display='none';
+  document.getElementById('end-screen').style.display='none';
+  questions=shuf(QS);
+  cur=0; score=0; streak=0; bestStreak=0; correct=0;
+  g('sc').textContent='0';
+  g('st').textContent='0×';
+  resetVals();
+  running=true;
+  loadQ();
+}
+
+function loadQ(){
+  if(cur>=questions.length){showEnd();return;}
+  answered=false;
+  clearInterval(tInt);
+  g('next-btn').style.display='none';
+  g('cons-row').classList.remove('show');
+  g('explain-row').classList.remove('show');
+
+  var q=questions[cur];
+  g('qcat').textContent=q.cat;
+  g('qpts').textContent='+'+q.pts+' GL';
+  g('qtxt').textContent=q.q;
+  g('prog').style.width=Math.round((cur/questions.length)*100)+'%';
+  g('prog-lbl').textContent=cur+' / '+questions.length;
+  resetVals();
+  buildAnswers(q.opts);
+  startTimer();
+}
+
+function buildAnswers(opts){
+  var grid=g('ans-grid');
+  grid.innerHTML='';
+  for(var i=0;i<opts.length;i++){
+    var btn=document.createElement('button');
+    btn.className='ans';
+    btn.innerHTML='<span class="ans-key">'+LETTERS[i]+'</span><span class="ans-txt">'+opts[i]+'</span>';
+    btn.dataset.i=i;
+    btn.addEventListener('click', makeAnswerHandler(i));
+    grid.appendChild(btn);
+  }
+}
+
+function makeAnswerHandler(idx){
+  return function(){ selectAnswer(idx); };
+}
+
+function startTimer(){
+  tv=25; updateTimer();
+  tInt=setInterval(function(){
+    tv--;
+    updateTimer();
+    if(tv<=0){clearInterval(tInt);timeUp();}
+  },1000);
+}
+
+function updateTimer(){
+  g('t-num').textContent=tv;
+  var circ=131.9;
+  g('t-arc').style.strokeDashoffset=circ-(tv/25)*circ;
+  g('t-arc').style.stroke=tv>12?'#00C2A8':tv>6?'#FFB020':'#FF3D5A';
+  g('t-num').style.color=tv>6?'#fff':'#FF3D5A';
+}
+
+function timeUp(){
+  if(answered)return;
+  answered=true; streak=0; g('st').textContent='0×';
+  var q=questions[cur];
+  var btns=document.querySelectorAll('.ans');
+  for(var i=0;i<btns.length;i++){
+    btns[i].disabled=true;
+    if(parseInt(btns[i].dataset.i)===q.a) btns[i].classList.add('correct');
+    else btns[i].classList.add('dim');
+  }
+  showVote(false);
+  showExplain(q);
+  showFB(false,'Time expired — answer: '+LETTERS[q.a]);
+  triggerBurst(0xFF3D5A);
+  setTimeout(function(){g('next-btn').style.display='block';},1000);
+}
+
+function selectAnswer(idx){
+  if(!running||answered)return;
+  answered=true;
+  clearInterval(tInt);
+  var q=questions[cur];
+  var isRight=(idx===q.a);
+  var btns=document.querySelectorAll('.ans');
+  for(var i=0;i<btns.length;i++){
+    btns[i].disabled=true;
+    var bi=parseInt(btns[i].dataset.i);
+    if(bi===idx) btns[i].classList.add(isRight?'correct':'wrong');
+    else if(!isRight&&bi===q.a) btns[i].classList.add('correct');
+    else btns[i].classList.add('dim');
+  }
+
+  if(isRight){
+    correct++;
+    streak++;
+    bestStreak=Math.max(bestStreak,streak);
+    var bonus=(Math.min(streak-1,5))*Math.floor(q.pts/5);
+    score+=q.pts+bonus;
+    g('sc').textContent=score;
+    g('st').textContent=streak+'×';
+    chipFlash('sc','up');
+    if(streak>=3){
+      g('s-val').textContent=streak;
+      var t=g('s-toast');
+      t.classList.add('show');
+      setTimeout(function(){t.classList.remove('show');},1800);
+    }
+    showFB(true,bonus>0?'Correct! +'+bonus+' GL streak bonus':'Correct!');
+    triggerBurst(0x00FF9D);
+    flashOrb(cur, true);
   } else {
-    btnLblText.textContent = '\uD83D\uDC41 Show All Labels';
-    btnLabels.classList.add('hidden-mode');
+    streak=0; g('st').textContent='0×'; chipFlash('st','dn');
+    showFB(false,'Wrong — answer: '+LETTERS[q.a]+' · '+q.opts[q.a]);
+    triggerBurst(0xFF3D5A);
+    flashOrb(cur, false);
+  }
+
+  g('prog').style.width=Math.round(((cur+1)/questions.length)*100)+'%';
+  g('prog-lbl').textContent=(cur+1)+' / '+questions.length;
+  showVote(isRight);
+  showExplain(q);
+  setTimeout(function(){g('next-btn').style.display='block';},1000);
+}
+
+function showVote(isRight){
+  var row=g('cons-row');
+  row.classList.add('show');
+  var agreeN=isRight?(4+Math.floor(Math.random()*1)):(1+Math.floor(Math.random()*2));
+  var pct=Math.round((agreeN/5)*100);
+  var fill=g('cons-fill');
+  fill.style.background=isRight?'#00C2A8':'#FF3D5A';
+  setTimeout(function(){fill.style.width=pct+'%';g('cons-pct').textContent=pct+'%';},80);
+
+  var states=shuf([0,1,2,3,4]).map(function(_,i){return i<agreeN?'agree':'disagree';});
+  for(var i=0;i<5;i++){
+    (function(vi, st){
+      document.getElementById('v'+vi).className='vn thinking';
+      setTimeout(function(){document.getElementById('v'+vi).className='vn '+st;}, 280+vi*170);
+    })(i, states[i]);
   }
 }
 
-// keyboard shortcut H
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'h' || e.key === 'H') toggleLabels();
-  if (e.key === 'r' || e.key === 'R') resetAllBlocks();
-  if (e.key === 'f' || e.key === 'F') setCamPreset('front');
-  if (e.key === 't' || e.key === 'T') setCamPreset('top');
-  if (e.key === 'b' || e.key === 'B') setCamPreset('btc');
-  if (e.key === 'e' || e.key === 'E') setCamPreset('engine');
-});
+function showExplain(q){
+  var el=g('explain-row');
+  el.textContent='> '+q.ex;
+  el.classList.add('show');
+}
 
-// ─── MOUSE EVENTS ─────────────────────────────────────────────────────────────
-cvs.addEventListener('mousedown', function(e) {
-  e.preventDefault();
-  onPointerDown(e.clientX, e.clientY, e.button===2||e.button===1);
-});
-cvs.addEventListener('contextmenu', function(e){ e.preventDefault(); });
-window.addEventListener('mouseup',   function(e){ onPointerUp(e.clientX, e.clientY); });
-window.addEventListener('mousemove', function(e){ onPointerMove(e.clientX, e.clientY); });
-cvs.addEventListener('wheel', function(e){ tR=Math.max(8,Math.min(75,tR+e.deltaY*0.07)); });
+function showFB(ok, msg){
+  var fb=g('fb'), icon=g('fb-icon');
+  icon.textContent=ok?'✓':'✗';
+  icon.className='fb-icon '+(ok?'ok':'bad');
+  g('fb-txt').textContent=msg;
+  fb.classList.add('show');
+  setTimeout(function(){fb.classList.remove('show');},1600);
+}
 
-// ─── TOUCH EVENTS ─────────────────────────────────────────────────────────────
-var touchId=null;
-cvs.addEventListener('touchstart', function(e) {
-  e.preventDefault();
-  if (e.touches.length===1) {
-    touchId=e.touches[0].identifier;
-    onPointerDown(e.touches[0].clientX, e.touches[0].clientY, false);
-  } else if (e.touches.length===2) {
-    // two-finger = orbit
-    if (isDraggingObj) { onPointerUp(lastX,lastY); }
-    isOrbiting=true; autoOrb=false;
+function chipFlash(id, cls){
+  var el=g(id);
+  el.classList.add(cls);
+  setTimeout(function(){el.classList.remove(cls);},700);
+}
+
+function resetVals(){
+  for(var i=0;i<5;i++) document.getElementById('v'+i).className='vn';
+}
+
+function nextQ(){ cur++; loadQ(); }
+
+function showEnd(){
+  running=false; clearInterval(tInt);
+  var end=g('end-screen');
+  end.style.display='flex';
+  g('e-score').textContent=score;
+  var total=questions.length;
+  var acc=Math.round((correct/total)*100);
+  g('e-cor').textContent=correct+'/'+total;
+  g('e-str').textContent=bestStreak+'×';
+  g('e-acc').textContent=acc+'%';
+
+  var ranks=[
+    {min:0,  t:'Apprentice Node',      m:'Keep exploring the GenLayer docs — the protocol has a lot to offer!'},
+    {min:60, t:'Junior Builder',        m:'Nice work! Study the consensus and GenVM sections to go further.'},
+    {min:110,t:'Senior Validator',      m:'Excellent! You have strong command of GenLayer architecture.'},
+    {min:160,t:'Protocol Champion',     m:'Outstanding — perfect command of Intelligent Contracts. Ready to build!'},
+  ];
+  var rank=ranks[0];
+  for(var r=0;r<ranks.length;r++) if(score>=ranks[r].min) rank=ranks[r];
+  g('e-rank').textContent=rank.t;
+  g('e-msg').textContent=rank.m;
+
+  var maxS=QS.reduce(function(s,q){return s+q.pts;},0)+60;
+  setTimeout(function(){
+    g('end-arc').style.strokeDashoffset=301.6*(1-Math.min(score/maxS,1));
+  },300);
+}
+
+function g(id){ return document.getElementById(id); }
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+window.onload = function(){
+  if(typeof THREE !== 'undefined') {
+    initThree();
+  } else {
+    // Fallback: plain dark background if Three.js fails to load
+    document.getElementById('cv').style.background='#040D18';
+    console.warn('Three.js not loaded — running in 2D mode');
   }
-}, { passive:false });
-
-cvs.addEventListener('touchmove', function(e) {
-  e.preventDefault();
-  if (e.touches.length===1) {
-    for (var i=0; i<e.touches.length; i++) {
-      if (e.touches[i].identifier===touchId) {
-        onPointerMove(e.touches[i].clientX, e.touches[i].clientY); break;
-      }
-    }
-  } else if (e.touches.length===2 && isOrbiting) {
-    var cx=(e.touches[0].clientX+e.touches[1].clientX)/2;
-    var cy=(e.touches[0].clientY+e.touches[1].clientY)/2;
-    onPointerMove(cx,cy);
-  }
-}, { passive:false });
-
-cvs.addEventListener('touchend', function(e) {
-  e.preventDefault();
-  onPointerUp(lastX,lastY);
-}, { passive:false });
-
-// ─── PROCESS CARD CLICK → CAMERA FOCUS ──────────────────────────────────────
-var focusTargets = {
-  1:  { tTh: -0.4, tPh: 0.15, tR: 22, cx:-22 },
-  2:  { tTh: -0.3, tPh: 0.15, tR: 18, cx:-14 },
-  3:  { tTh: -0.2, tPh: 0.18, tR: 16, cx:-10 },
-  4:  { tTh:  0.0, tPh: 0.22, tR: 18, cx:  0 },
-  5:  { tTh:  0.0, tPh: 0.12, tR: 14, cx:  0 },
-  6:  { tTh:  0.0, tPh: 0.18, tR: 14, cx:  0 },
-  7:  { tTh:  0.0, tPh: 0.24, tR: 14, cx:  0 },
-  8:  { tTh:  0.0, tPh: 0.30, tR: 14, cx:  0 },
-  9:  { tTh:  0.0, tPh: 0.20, tR: 12, cx:  0 },
-  10: { tTh:  0.0, tPh: 0.50, tR: 14, cx:  0 },
-  11: { tTh:  0.5, tPh: 0.30, tR: 18, cx: 12 },
-  12: { tTh:  0.6, tPh: 0.22, tR: 18, cx: 22 },
-  13: { tTh:  0.6, tPh: 0.10, tR: 16, cx: 22 },
-  14: { tTh:  0.8, tPh: 0.18, tR: 22, cx: 30 },
-  15: { tTh:  0.0, tPh:-0.10, tR: 30, cx:  0 },
-  16: { tTh:  0.0, tPh:-0.10, tR: 30, cx:  0 },
-  17: { tTh: -0.5, tPh: 0.40, tR: 20, cx:-14 },
-  18: { tTh:  0.6, tPh: 0.22, tR: 20, cx: 22 },
 };
-
-document.querySelectorAll('.pr').forEach(function(card, idx) {
-  card.addEventListener('click', function() {
-    var num = idx + 1;
-    var ft = focusTargets[num];
-    if (ft) { tTh = ft.tTh; tPh = ft.tPh; tR = ft.tR; autoOrb = false; setTimeout(function(){ autoOrb=true; }, 6000); }
-  });
-});
-
-// ─── CAMERA PRESETS ──────────────────────────────────────────────────────────
-function setCamPreset(name) {
-  autoOrb = false;
-  if (name === 'front')  { tTh = 0;    tPh = 0.22; tR = 34; }
-  if (name === 'top')    { tTh = 0;    tPh = 1.1;  tR = 38; }
-  if (name === 'side')   { tTh = 1.57; tPh = 0.22; tR = 34; }
-  if (name === 'btc')    { tTh = 0.5;  tPh = 0.25; tR = 20; }
-  if (name === 'engine') { tTh = 0;    tPh = 0.35; tR = 16; }
-  setTimeout(function(){ autoOrb = true; }, 8000);
-}
-
-// ─── RESET BLOCK POSITIONS ───────────────────────────────────────────────────
-var origPositions = {};
-draggables.forEach(function(d, i) {
-  origPositions[i] = { x: d.mesh.position.x, y: d.mesh.position.y, z: d.mesh.position.z };
-});
-function resetAllBlocks() {
-  draggables.forEach(function(d, i) {
-    var op = origPositions[i];
-    if (op) { d.mesh.position.set(op.x, op.y, op.z); }
-  });
-  var tip2 = document.getElementById('tip');
-  tip2.innerHTML = '<strong>Reset Complete</strong>All blocks returned to original positions.';
-  tip2.style.display = 'block';
-  clearTimeout(tip2._t); tip2._t = setTimeout(function(){ tip2.style.display='none'; }, 2500);
-}
-
-// ─── SCREENSHOT ──────────────────────────────────────────────────────────────
-function takeScreenshot() {
-  renderer.render(scene, camera);
-  var dataURL = renderer.domElement.toDataURL('image/png');
-  var a = document.createElement('a');
-  a.href = dataURL;
-  a.download = 'UTEXO-visualization.png';
-  a.click();
-}
-
-// ─── LIVE METERS UPDATE ──────────────────────────────────────────────────────
-function updateMeters(t) {
-  var txW  = Math.round(paySpd * 100);
-  var engW = Math.round(40 + Math.sin(t * 1.2) * 25 + paySpd * 25);
-  var btcW = Math.round(20 + Math.abs(Math.sin(t * 0.3)) * 60);
-  var chW  = Math.round(cngLvl * 90 + Math.abs(Math.sin(t * 1.5)) * 10);
-  engW = Math.min(100, Math.max(5, engW));
-  btcW = Math.min(100, Math.max(5, btcW));
-  chW  = Math.min(100, Math.max(5, chW));
-  document.getElementById('m-tx').style.width  = txW  + '%';
-  document.getElementById('m-eng').style.width = engW + '%';
-  document.getElementById('m-btc').style.width = btcW + '%';
-  document.getElementById('m-ch').style.width  = chW  + '%';
-  // color chaos bar red when high
-  document.getElementById('m-ch').style.background = chW > 65 ? '#ff1100' : '#ff3c3c';
-}
-
-// ─── PREVENT CANVAS WHEEL FROM STEALING PANEL SCROLL ────────────────────────
-var rpEl = document.getElementById('rp');
-var lpEl = document.getElementById('lp');
-rpEl.addEventListener('wheel', function(e) { e.stopPropagation(); }, { passive:true });
-lpEl.addEventListener('wheel', function(e) { e.stopPropagation(); }, { passive:true });
-rpEl.addEventListener('mousedown', function(e) { e.stopPropagation(); });
-lpEl.addEventListener('mousedown', function(e) { e.stopPropagation(); });
-// prevent canvas from capturing pointer when over panels
-rpEl.addEventListener('mousemove', function(e) { e.stopPropagation(); });
-lpEl.addEventListener('mousemove', function(e) { e.stopPropagation(); });
-var paySpd=0.70, cngLvl=0.40;
-function setupTog(id, fn) {
-  var el=document.getElementById(id);
-  el.addEventListener('click', function(){ el.classList.toggle('on'); fn(el.classList.contains('on')); });
-}
-setupTog('t1', function(v){ lnG.visible=v; });
-setupTog('t2', function(v){ btcG.visible=v; tunG.visible=v; });
-setupTog('t3', function(v){ chaosG.visible=v; });
-setupTog('t4', function(v){ rgbG.visible=v; });
-setupTog('t5', function(v){ apiG.visible=v; apiBeam.visible=v; });
-document.getElementById('r1').addEventListener('input',function(e){ paySpd=e.target.value/100; document.getElementById('v1').textContent=e.target.value+'%'; });
-document.getElementById('r2').addEventListener('input',function(e){ cngLvl=e.target.value/100; document.getElementById('v2').textContent=e.target.value+'%'; });
-
-// ─── LABEL PROJECTION ─────────────────────────────────────────────────────────
-var pv3=new THREE.Vector3();
-function projLabel(wp) {
-  pv3.copy(wp).project(camera);
-  return { x:(pv3.x*0.5+0.5)*innerWidth, y:(-pv3.y*0.5+0.5)*innerHeight, behind:pv3.z>1 };
-}
-
-// ─── ANIMATION ────────────────────────────────────────────────────────────────
-var clock=new THREE.Clock();
-function animate() {
-  requestAnimationFrame(animate);
-  var t=clock.getElapsedTime();
-
-  // camera
-  if (autoOrb && !isDraggingObj) { orbAngle+=0.0005; tTh=orbAngle; tPh=0.22+Math.sin(t*0.07)*0.06; }
-  cTh+=(tTh-cTh)*0.04; cPh+=(tPh-cPh)*0.04; cR+=(tR-cR)*0.06;
-  camera.position.x=cR*Math.sin(cTh)*Math.cos(cPh);
-  camera.position.y=cR*Math.sin(cPh)+2;
-  camera.position.z=cR*Math.cos(cTh)*Math.cos(cPh);
-  camera.lookAt(0,1,0);
-
-  // engine core
-  cL.intensity=5+Math.sin(t*2.2)*1.2;
-  crystal.rotation.y+=0.013; crystal.rotation.x+=0.007;
-  crystal.material.emissiveIntensity=0.75+0.4*Math.sin(t*2.1);
-  coreG.position.y=Math.sin(t*0.38)*0.18;
-  feeG.position.y=7.5+Math.sin(t*0.38)*0.18;
-
-  // layer particles
-  lyrFlow.forEach(function(f) {
-    var pa=f.pts.geometry.attributes.position.array;
-    for (var i=0; i<pa.length/3; i++) { pa[i*3]+=f.spd[i]*paySpd*2.8; if(pa[i*3]>5.5)pa[i*3]=-5.5; }
-    f.pts.geometry.attributes.position.needsUpdate=true;
-  });
-
-  // routing nodes
-  routeNodes.forEach(function(rn, i) {
-    rn.nd.scale.setScalar(1+0.35*Math.sin(t*2.6+i));
-    rn.nd.rotation.y+=0.025; rn.ring.rotation.z+=0.04;
-    rn.ring.material.opacity=0.38+0.42*Math.sin(t*3+i);
-    rn.nd.material.color.setHex(Math.sin(t*3+i)>0.5?0x00ffcc:0x00d4ff);
-  });
-
-  // payment packets
-  pkts.forEach(function(pk) {
-    pk.t+=pk.spd*paySpd*2.8;
-    if (pk.t>1) { pk.t=0; txNum++; document.getElementById('txn').textContent=txNum.toLocaleString(); }
-    pk.mesh.position.x=-21+pk.t*16;
-    pk.mesh.rotation.y+=0.07*paySpd; pk.mesh.rotation.z+=0.05;
-    var nx=pk.mesh.position.x;
-    var flash=routeNodes.some(function(r){ return Math.abs(r.nd.position.x-nx)<0.7; });
-    pk.mesh.material.color.setHex(flash?0xffffff:0x00e87a);
-    pk.mesh.material.opacity=flash?1.0:0.88;
-  });
-
-  // RGB ribbons
-  ribbons.forEach(function(rb) {
-    rb.mesh.position.x=Math.sin(t*rb.spd+rb.off)*0.4;
-    rb.mesh.material.opacity=0.35*(0.65+0.35*Math.sin(t*rb.spd*2+rb.off));
-  });
-
-  // fee rings
-  feeRings.forEach(function(fr, i) {
-    fr.mesh.rotation.z+=fr.spd+Math.sin(t*0.4)*0.001;
-    fr.mesh.material.opacity=0.28+0.2*Math.sin(t*1.8+i);
-  });
-
-  // commitment beams
-  beamTmr+=0.016;
-  if (beamTmr>3.5) { beamTmr=0; fireBeam(); }
-  for (var i=beams.length-1; i>=0; i--) {
-    beams[i].t+=0.012;
-    beams[i].mesh.material.opacity=Math.sin(beams[i].t*Math.PI)*0.9;
-    if (beams[i].t>1) { scene.remove(beams[i].mesh); beams.splice(i,1); spawnRipple(); }
-  }
-  for (var i=ripples.length-1; i>=0; i--) {
-    ripples[i].t+=0.036;
-    var rt=ripples[i].t;
-    ripples[i].mesh.scale.setScalar(1+Math.max(0,rt)*3.8);
-    ripples[i].mesh.material.opacity=Math.max(0,0.85-rt*0.9);
-    if (rt>1.1) { scene.remove(ripples[i].mesh); ripples.splice(i,1); }
-  }
-  gL.intensity=4+Math.sin(t*0.85)*0.9;
-  updateMeters(t);
-
-  // tunnel rings
-  tunG.children.forEach(function(r,i) {
-    r.material.opacity=Math.max(0.02,(0.36-i*0.013)*(0.72+0.28*Math.sin(t*1.4+i*0.24)));
-  });
-
-  // bitcoin blocks gentle float
-  btcBlocks.forEach(function(blk, i) {
-    // only float if not being dragged
-    var isDraggedBlock = activeDrag && activeDrag.mesh===blk;
-    if (!isDraggedBlock) {
-      blk.position.y = (-4.6+i*1.5) + Math.sin(t*0.6+i*0.8)*0.08;
-    }
-  });
-
-  // chaos
-  spikes.forEach(function(sp, i) {
-    var h=sp.bh*(0.45+cngLvl*1.3*Math.abs(Math.sin(t*2.1+i*0.58)));
-    sp.mesh.scale.y=h/sp.bh; sp.mesh.material.color.setHex(h>sp.bh*1.2?0xff1100:0xff5500);
-    sp.mesh.material.opacity=0.52+0.3*Math.sin(t*2.5+i);
-  });
-  var cp=chPts.pts.geometry.attributes.position.array;
-  for (var i=0; i<320; i++) cp[i*3+1]+=0.006*Math.sin(t*2+i*0.4)*cngLvl;
-  chPts.pts.geometry.attributes.position.needsUpdate=true;
-  qBlocks.forEach(function(qb) {
-    qb.mesh.position.x+=qb.spd/(cngLvl+0.15);
-    if(qb.mesh.position.x>17)qb.mesh.position.x=-17;
-    qb.mesh.material.opacity=0.3+cngLvl*0.42;
-  });
-  rL.intensity=1.4+cngLvl*2.2*Math.abs(Math.sin(t));
-
-  // API
-  apiPkts2.forEach(function(ap) {
-    ap.t=(ap.t+0.004*paySpd)%1;
-    var pt=apiCurve.getPoint(ap.t); ap.mesh.position.copy(pt);
-    ap.mesh.material.opacity=0.65+0.35*Math.sin(ap.t*Math.PI);
-  });
-  sdk.rotation.x+=0.018; sdk.rotation.y+=0.022;
-  appCubes.forEach(function(a,i){ a.rotation.y+=0.02+i*0.005; });
-  apiG.position.y=9.5+Math.sin(t*0.47)*0.3;
-
-  // label projection
-  lblEls.forEach(function(lb) {
-    var p=projLabel(lb.world);
-    var inLP=p.x<innerWidth*0.22&&p.y>20&&p.y<innerHeight-20;
-    var inRP=p.x>innerWidth*0.80&&p.y>20&&p.y<innerHeight-20;
-    if (p.behind||p.x<-60||p.x>innerWidth+60||p.y<-60||p.y>innerHeight+60) {
-      lb.el.style.display='none';
-    } else {
-      lb.el.style.display='block';
-      lb.el.style.left=p.x+'px'; lb.el.style.top=p.y+'px';
-      lb.el.style.opacity=(inLP||inRP)?'0.12':'1';
-    }
-  });
-
-  renderer.render(scene, camera);
-}
-
-window.addEventListener('resize', function() {
-  camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth,innerHeight);
-});
-
-animate();
 </script>
 </body>
 </html>
